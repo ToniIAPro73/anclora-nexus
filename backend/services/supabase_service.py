@@ -1,11 +1,26 @@
 import hashlib
 import hmac
 import json
+import socket
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
 from backend.config import settings
 from backend.services.origin_editability_policy import sanitize_payload
+
+# DNS resilience for Supabase cloud hosts
+_orig_getaddrinfo = socket.getaddrinfo
+def _resilient_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    try:
+        return _orig_getaddrinfo(host, port, family, type, proto, flags)
+    except socket.gaierror:
+        if "supabase.co" in str(host):
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("172.64.149.246", port)),
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.18.38.10", port)),
+            ]
+        raise
+socket.getaddrinfo = _resilient_getaddrinfo
 
 class SupabaseService:
     def __init__(self):
