@@ -60,7 +60,7 @@ class IdentityProvisioningService:
             "Authorization": f"Bearer {self.service_token}",
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(url, params={"email": email}, headers=headers)
             if resp.status_code == 404:
                 return None
@@ -91,7 +91,7 @@ class IdentityProvisioningService:
             "invitedByIdentityUserId": reviewer_id,
             "locale": locale,
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
                 return resp.json()
@@ -113,7 +113,7 @@ class IdentityProvisioningService:
         payload = {
             "identityUserId": identity_user_id,
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
                 return resp.json()
@@ -159,11 +159,11 @@ class IdentityProvisioningService:
                 # CASO B: Existing identity user -> grant application membership
                 identity_user_id = user["id"]
                 membership_res = await self.grant_membership(app_id, identity_user_id)
-                membership = membership_res.get("membership", {})
+                membership_id = membership_res.get("membershipId") or membership_res.get("membership", {}).get("id")
                 return {
                     "provisioning_status": "provisioned",
                     "identity_subject_id": identity_user_id,
-                    "membership_id": membership.get("id"),
+                    "membership_id": membership_id,
                     "provisioning_case": "CASO_B",
                 }
             else:
@@ -175,11 +175,12 @@ class IdentityProvisioningService:
                     locale=request.get("submission_language", "es"),
                 )
                 invitation = invitation_res.get("invitation", {})
+                invitation_id = invitation_res.get("invitationId") or invitation.get("id")
                 return {
                     "provisioning_status": "invite_ready",
-                    "identity_invitation_id": invitation.get("id"),
-                    "invite_token": invitation.get("token"),
-                    "invite_expires_at": invitation.get("expiresAt"),
+                    "identity_invitation_id": invitation_id,
+                    "invite_token": invitation_res.get("inviteToken") or invitation.get("token"),
+                    "invite_expires_at": invitation_res.get("expiresAt") or invitation.get("expiresAt"),
                     "invite_url": invitation_res.get("inviteUrl"),
                     "provisioning_case": "CASO_A",
                 }

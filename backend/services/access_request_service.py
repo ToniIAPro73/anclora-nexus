@@ -70,7 +70,7 @@ class AccessRequestService:
         # org_id is strictly controlled by backend
         org_id = settings.LEGACY_SINGLE_TENANT_ORG_ID or settings.PUBLIC_CTA_ORG_ID
         
-        persistence_data = data.model_dump(exclude={"captcha_token"})
+        persistence_data = data.model_dump(exclude={"captcha_token", "lead_type"})
         persistence_data["org_id"] = org_id
         persistence_data["captcha_verified"] = captcha_result.get("verified", False)
         persistence_data["captcha_hostname"] = captcha_result.get("hostname")

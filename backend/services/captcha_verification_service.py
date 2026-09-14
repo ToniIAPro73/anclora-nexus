@@ -30,6 +30,8 @@ class CaptchaVerificationService:
             secret = settings.RECAPTCHA_SECRET_KEY
         else:  # turnstile
             if not settings.TURNSTILE_SECRET_KEY:
+                if settings.ENVIRONMENT == "development" or settings.APP_ENV == "development":
+                    return {"provider": "turnstile", "verified": True, "required": False, "hostname": "dev.localhost"}
                 raise CaptchaVerificationError("Turnstile secret key is not configured")
             verify_url = settings.TURNSTILE_VERIFY_URL
             secret = settings.TURNSTILE_SECRET_KEY

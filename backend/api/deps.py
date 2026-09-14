@@ -14,12 +14,16 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    # Supabase magic link auth verification (simplified for v0)
-    # The Supabase client handles JWT validation if configured with service role or anon key
-    # For now, we extract the user but don't force RLS.
+    # Dev bypass when running in development environment
+    token = authorization.split(" ")[1] if " " in authorization else authorization
+    if settings.ENVIRONMENT == "development" or settings.APP_ENV == "development":
+        if token in ["dev-admin-token", settings.IDENTITY_SERVICE_TOKEN, settings.INTERNAL_AUDIT_SECRET]:
+            class DevUser:
+                id = "00000000-0000-0000-0000-000000000001"
+                email = "admin@anclora.com"
+            return DevUser()
+
     try:
-        # Extract token from 'Bearer <token>'
-        token = authorization.split(" ")[1] if " " in authorization else authorization
         user_response = supabase_service.client.auth.get_user(token)
         if not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid session")
@@ -45,8 +49,11 @@ async def get_org_id(user = Depends(get_current_user)):
             return profile["org_id"]
     except Exception:
         pass
-    if settings.ALLOW_LEGACY_ORG_FALLBACK and settings.LEGACY_SINGLE_TENANT_ORG_ID:
-        return settings.LEGACY_SINGLE_TENANT_ORG_ID
+    if (
+        (settings.ENVIRONMENT == "development" or settings.APP_ENV == "development")
+        or (settings.ALLOW_LEGACY_ORG_FALLBACK and settings.LEGACY_SINGLE_TENANT_ORG_ID)
+    ):
+        return settings.LEGACY_SINGLE_TENANT_ORG_ID or settings.PUBLIC_CTA_ORG_ID
     raise HTTPException(status_code=403, detail="ORG_SCOPE_NOT_RESOLVED")
 
 async def require_access_request_reviewer(
@@ -56,6 +63,9 @@ async def require_access_request_reviewer(
     """
     Requires an active owner/manager membership for access request decisions.
     """
+    if (settings.ENVIRONMENT == "development" or settings.APP_ENV == "development") and str(current_user.id) == "00000000-0000-0000-0000-000000000001":
+        return current_user
+
     try:
         parsed_org_id = UUID(str(org_id))
         parsed_user_id = UUID(str(current_user.id))
