@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 
 from backend.models.access_requests import (
     AccessRequestProduct,
@@ -313,6 +314,10 @@ async def test_approve_sends_email_after_state_update(monkeypatch, service):
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_audit_service",
         audit_service,
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
+        AsyncMock(return_value={"provisioning_status": "invite_ready", "provisioning_case": "CASO_A", "identity_invitation_id": "inv-test"}),
     )
 
     result = await service.approve_request(

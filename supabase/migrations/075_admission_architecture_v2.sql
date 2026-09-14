@@ -65,6 +65,7 @@ ALTER TABLE public.access_requests
         'pending',
         'invite_ready',
         'membership_granted',
+        'provisioned',
         'completed',
         'failed',
         'not_applicable'

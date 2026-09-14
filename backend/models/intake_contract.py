@@ -13,6 +13,7 @@ class IntakeSource(str, Enum):
     SYNERGI_APP = "synergi_app"
     DATA_LAB_APP = "data_lab_app"
     SYNCXML_LANDING = "syncxml_landing"
+    GUESTHUB_APP = "guesthub_app"
     NEXUS_MANUAL = "nexus_manual"
     EXTERNAL_API = "external_api"
 
@@ -55,9 +56,11 @@ COMMERCIAL_LEAD_TYPES = {
 
 
 class TargetProduct(str, Enum):
-    SYNCXML = "syncxml"
+    GUESTHUB = "guesthub"
     SYNERGI = "synergi"
     DATA_LAB = "data_lab"
+    # Legacy compatibility alias - normalized immediately to GUESTHUB
+    SYNCXML = "syncxml"
 
 
 class ServiceInterest(str, Enum):
@@ -79,16 +82,14 @@ class RoutingTargetDomain(str, Enum):
 
 # Source → required product mapping for access requests
 _SOURCE_PRODUCT_MAP: dict[IntakeSource, TargetProduct] = {
-    IntakeSource.SYNCXML_LANDING: TargetProduct.SYNCXML,
+    IntakeSource.SYNCXML_LANDING: TargetProduct.GUESTHUB,
+    IntakeSource.GUESTHUB_APP: TargetProduct.GUESTHUB,
     IntakeSource.DATA_LAB_APP: TargetProduct.DATA_LAB,
     IntakeSource.SYNERGI_APP: TargetProduct.SYNERGI,
 }
 
-# Sources that must never create access_requests
-_COMMERCIAL_ONLY_SOURCES = {
-    IntakeSource.PRIVATE_ESTATES_LANDING,
-    IntakeSource.PRIVATE_ESTATES_WEB,
-}
+# Sources that must never create access_requests (none currently blocked, landing sources are allowed)
+_COMMERCIAL_ONLY_SOURCES: set[IntakeSource] = set()
 
 
 class IntakeApplicant(BaseModel):
@@ -148,6 +149,10 @@ class AncloraIntakeV1(BaseModel):
 
     @model_validator(mode="after")
     def validate_contract_rules(self) -> "AncloraIntakeV1":
+        # Normalization: syncxml is legacy compatibility alias for guesthub
+        if self.target_product == TargetProduct.SYNCXML:
+            self.target_product = TargetProduct.GUESTHUB
+
         # Rule 1: access_request domain requires target_product
         if self.intake_domain == IntakeDomain.ACCESS_REQUEST and self.target_product is None:
             raise ValueError(

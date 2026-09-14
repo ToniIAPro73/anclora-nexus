@@ -95,6 +95,7 @@ class PublicAccessRequestCreate(BaseModel):
     source_detail: Optional[str] = None
     schema_version: Optional[str] = "anclora-intake-v1"
     request_type: Optional[str] = None
+    lead_type: Optional[str] = None  # Legacy alias mapped to request_type
     idempotency_key: Optional[str] = None
     full_name: str
     email: EmailStr
@@ -112,6 +113,14 @@ class PublicAccessRequestCreate(BaseModel):
     external_id: Optional[str] = None
     captcha_provider: str = "turnstile"
     captcha_token: str
+
+    @model_validator(mode="after")
+    def normalize_request_type_and_product(self):
+        if not self.request_type and self.lead_type:
+            self.request_type = self.lead_type
+        if self.product == AccessRequestProduct.SYNCXML:
+            self.product = AccessRequestProduct.GUESTHUB
+        return self
 
     @model_validator(mode="after")
     def validate_consents(self):

@@ -137,14 +137,20 @@ class IdentityProvisioningService:
         product = request.get("product")
         app_id = self._normalize_app_id(product)
 
-        # Fallback when Identity is not configured or disabled in current environment
+        # Fail-closed: when Identity is not configured or disabled,
+        # never simulate invitations or memberships. Set status to 'pending' with clear error.
         if not self.is_enabled or not self.service_token:
-            logger.info(
-                f"Identity provisioning fallback: enabled={self.is_enabled}, has_token={bool(self.service_token)}"
+            reason = "Identity provisioning is disabled" if not self.is_enabled else "Missing IDENTITY_SERVICE_TOKEN"
+            logger.warning(
+                f"Identity provisioning fail-closed: {reason} (enabled={self.is_enabled}, has_token={bool(self.service_token)})"
             )
             return {
-                "provisioning_status": "invite_ready",
-                "provisioning_case": "STANDALONE_FALLBACK",
+                "provisioning_status": "pending",
+                "provisioning_error": reason,
+                "provisioning_case": "NOT_CONFIGURED",
+                "identity_subject_id": None,
+                "identity_invitation_id": None,
+                "membership_id": None,
             }
 
         try:
@@ -183,6 +189,9 @@ class IdentityProvisioningService:
                 "provisioning_status": "failed",
                 "provisioning_error": str(e),
                 "provisioning_case": "ERROR",
+                "identity_subject_id": None,
+                "identity_invitation_id": None,
+                "membership_id": None,
             }
 
 
