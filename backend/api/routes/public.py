@@ -183,10 +183,13 @@ async def create_public_access_request(data: PublicAccessRequestCreate, request:
 @router.post("/data-lab-access-requests", status_code=status.HTTP_201_CREATED)
 async def legacy_data_lab_access_request(data: LegacyDataLabAccessRequest, request: Request):
     """Legacy wrapper for Data Lab access requests."""
-    # Transform legacy model to canonical without mutation
+    source_val = data.source or AccessRequestSource.DATA_LAB_APP
     canonical_data = PublicAccessRequestCreate(
         product=AccessRequestProduct.DATA_LAB,
-        source=AccessRequestSource.EXTERNAL_API,
+        source=source_val,
+        source_system=data.source_system or "data_lab_app",
+        source_channel=data.source_channel or "in_app",
+        source_detail=data.source_detail or "legacy_data_lab_endpoint",
         full_name=data.full_name,
         email=data.email,
         profile_type=data.profile_type,
@@ -203,10 +206,13 @@ async def legacy_data_lab_access_request(data: LegacyDataLabAccessRequest, reque
 @router.post("/partner-admissions", status_code=status.HTTP_201_CREATED)
 async def legacy_partner_admission(data: LegacyPartnerAdmission, request: Request):
     """Legacy wrapper for Synergi partner admissions."""
-    # Transform legacy model to canonical without mutation
+    source_val = data.source or AccessRequestSource.SYNERGI_APP
     canonical_data = PublicAccessRequestCreate(
         product=AccessRequestProduct.SYNERGI,
-        source=AccessRequestSource.EXTERNAL_API,
+        source=source_val,
+        source_system=data.source_system or "synergi_app",
+        source_channel=data.source_channel or "in_app",
+        source_detail=data.source_detail or "legacy_synergi_endpoint",
         full_name=data.full_name,
         email=data.email,
         service_category=data.service_category,
@@ -256,15 +262,31 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
             detail="target_product must be null for commercial_lead intakes",
         )
 
-    # Validate at least one contact field
+    # Validate at least one contact field (support applicant.email, contact_email, or root email)
     applicant = body.get("applicant") or {}
     applicant_email = applicant.get("email") if isinstance(applicant, dict) else None
-    contact_email = body.get("contact_email")
+    contact_email = body.get("contact_email") or body.get("email")
     if not applicant_email and not contact_email:
         raise HTTPException(
             status_code=422,
-            detail="At least one contact field is required: applicant.email or contact_email",
+            detail="At least one contact field is required: applicant.email, contact_email, or email",
         )
+
+    # Normalize applicant structure if flat fields were sent
+    if not isinstance(applicant, dict):
+        applicant = {}
+    if not applicant.get("email") and contact_email:
+        applicant["email"] = contact_email
+    if not applicant.get("full_name") and (body.get("full_name") or body.get("name")):
+        applicant["full_name"] = body.get("full_name") or body.get("name")
+    if not applicant.get("phone") and body.get("phone"):
+        applicant["phone"] = body.get("phone")
+
+    context = body.get("context") or {}
+    if isinstance(context, dict):
+        for field in ("source_system", "source_channel", "source_detail"):
+            if body.get(field) and field not in context:
+                context[field] = body.get(field)
 
     # Generate idempotency_key if not provided
     idempotency_key = body.get("idempotency_key") or str(uuid4())
@@ -297,7 +319,7 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
                 "idempotency_key": idempotency_key,
                 "service_interest": body.get("service_interest"),
                 "applicant": applicant if applicant else None,
-                "context": body.get("context"),
+                "context": context if context else None,
                 "consent": body.get("consent"),
                 "routing_target_domain": routing_target_domain,
             }
@@ -316,7 +338,7 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
                 "idempotency_key": idempotency_key,
                 "service_interest": body.get("service_interest"),
                 "applicant": applicant if applicant else None,
-                "context": body.get("context"),
+                "context": context if context else None,
                 "consent": body.get("consent"),
                 "routing_target_domain": routing_target_domain,
             }

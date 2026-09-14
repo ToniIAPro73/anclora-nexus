@@ -87,7 +87,10 @@ class Settings(BaseSettings):
 
     ADMIN_EMAIL: str = "toni@anclora.com"
     ADMIN_EMAILS: str = "antonio@anclora.com"
-    NEXUS_INTERNAL_API_KEY: Optional[str] = None
+    # Anclora Identity Service Settings
+    IDENTITY_SERVICE_URL: str = "http://localhost:4001"
+    IDENTITY_SERVICE_TOKEN: Optional[str] = None
+    IDENTITY_PROVISIONING_ENABLED: bool = True
 
     # Hermes Worker Settings
     HERMES_WORKER_URL: str = "http://localhost:8787"

@@ -127,6 +127,18 @@ export function AccessRequestDetailPanel({
         <Field label={t('accessRequestsReviewedBy')} value={request.reviewed_by} />
         <Field label={t('accessRequestsAdminNotes')} value={request.admin_notes} />
         <Field label={t('accessRequestsRejectionReason')} value={request.rejection_reason} />
+        {request.provisioning_status ? (
+          <Field label="Provisioning Status" value={request.provisioning_status} />
+        ) : null}
+        {request.identity_subject_id ? (
+          <Field label="Identity User ID" value={request.identity_subject_id} />
+        ) : null}
+        {request.identity_invitation_id ? (
+          <Field label="Identity Invitation ID" value={request.identity_invitation_id} />
+        ) : null}
+        {request.membership_id ? (
+          <Field label="Membership ID" value={request.membership_id} />
+        ) : null}
       </div>
 
       {request.decision_email?.status ? (

@@ -24,6 +24,7 @@ from backend.models.access_requests import (
 from backend.services.access_request_audit_service import access_request_audit_service
 from backend.services.access_request_email_service import access_request_email_service
 from backend.services.captcha_verification_service import captcha_verification_service, CaptchaVerificationError
+from backend.services.identity_provisioning_service import identity_provisioning_service
 from backend.services.supabase_service import supabase_service
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class AccessRequestService:
             _product = str(data.product.value) if hasattr(data.product, "value") else str(data.product)
             persistence_data["request_type"] = {
                 "syncxml": "pilot_request",
+                "guesthub": "pilot_request",
                 "synergi": "partner_admission",
                 "data_lab": "access_request",
             }.get(_product)
@@ -477,19 +479,36 @@ class AccessRequestService:
             raise ValueError("reviewer_id is required")
 
         pending_record = await self._ensure_pending(org_id, request_id)
-        invite_token = pending_record.get("invite_token") or self._generate_invite_token()
-        invite_expires_at = pending_record.get("invite_expires_at") or self._invite_expires_at()
+
+        # Execute canonical provisioning via Anclora Identity
+        prov_result = await identity_provisioning_service.provision_approved_request(
+            request=pending_record,
+            reviewer_id=reviewer_id,
+        )
+
+        invite_token = prov_result.get("invite_token") or pending_record.get("invite_token") or self._generate_invite_token()
+        invite_expires_at = prov_result.get("invite_expires_at") or pending_record.get("invite_expires_at") or self._invite_expires_at()
         invite_created = not pending_record.get("invite_token")
         now = self._now()
-        update_payload = {
+        update_payload: Dict[str, Any] = {
             "status": AccessRequestStatus.APPROVED.value,
             "reviewed_at": now,
             "reviewed_by": reviewer_id,
             "admin_notes": decision.admin_notes,
             "invite_token": invite_token,
             "invite_expires_at": invite_expires_at,
+            "provisioning_status": prov_result.get("provisioning_status", AccessRequestProvisioningStatus.INVITE_READY.value),
             "updated_at": now,
         }
+        if prov_result.get("identity_subject_id"):
+            update_payload["identity_subject_id"] = prov_result["identity_subject_id"]
+        if prov_result.get("identity_invitation_id"):
+            update_payload["identity_invitation_id"] = prov_result["identity_invitation_id"]
+        if prov_result.get("membership_id"):
+            update_payload["membership_id"] = prov_result["membership_id"]
+        if prov_result.get("provisioning_error"):
+            update_payload["provisioning_error"] = prov_result["provisioning_error"]
+
         record = await self._update_pending_request(org_id, request_id, update_payload)
         await self._log_audit_event(
             org_id=org_id,
@@ -509,7 +528,11 @@ class AccessRequestService:
                 "product": record.get("product"),
                 "invite_created": invite_created,
                 "invite_expires_at": invite_expires_at,
-                "provisioning_status": AccessRequestProvisioningStatus.INVITE_READY.value,
+                "provisioning_status": update_payload["provisioning_status"],
+                "provisioning_case": prov_result.get("provisioning_case"),
+                "identity_subject_id": prov_result.get("identity_subject_id"),
+                "identity_invitation_id": prov_result.get("identity_invitation_id"),
+                "membership_id": prov_result.get("membership_id"),
             },
         )
         record["decision_email"] = await self._send_decision_email(record)
@@ -708,11 +731,19 @@ class AccessRequestService:
 
     def _derive_provisioning_status(self, record: Dict[str, Any]) -> AccessRequestProvisioningStatus:
         status = record.get("status")
+        prov_status = record.get("provisioning_status")
+        if prov_status:
+            try:
+                return AccessRequestProvisioningStatus(prov_status)
+            except ValueError:
+                pass
         if status == AccessRequestStatus.PENDING.value:
             return AccessRequestProvisioningStatus.NOT_STARTED
         if status == AccessRequestStatus.REJECTED.value or status == AccessRequestStatus.CANCELLED.value:
             return AccessRequestProvisioningStatus.NOT_APPLICABLE
         if status == AccessRequestStatus.APPROVED.value:
+            if record.get("membership_id") or prov_status == "provisioned":
+                return AccessRequestProvisioningStatus.PROVISIONED
             if record.get("invite_token") and record.get("invite_expires_at"):
                 return AccessRequestProvisioningStatus.INVITE_READY
             return AccessRequestProvisioningStatus.PROVISIONING_PENDING

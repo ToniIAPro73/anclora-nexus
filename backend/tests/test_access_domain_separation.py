@@ -84,10 +84,15 @@ def test_access_source_has_nexus_manual_and_external_api():
     assert AccessRequestSource.EXTERNAL_API.value == "external_api"
 
 
-def test_access_source_no_commercial_values():
-    """Verify commercial sources (landing, private_estates_*) are NOT in AccessRequestSource."""
-    # These should not exist in the enum
-    invalid_sources = ["landing", "private_estates_landing", "private_estates_web"]
+def test_access_source_has_canonical_sources():
+    """Verify canonical sources from taxonomy are in AccessRequestSource enum."""
+    assert AccessRequestSource.PRIVATE_ESTATES_LANDING.value == "private_estates_landing"
+    assert AccessRequestSource.PRIVATE_ESTATES_WEB.value == "private_estates_web"
+    assert AccessRequestSource.GUESTHUB_APP.value == "guesthub_app"
+
+def test_access_source_no_uncatalogued_values():
+    """Verify uncatalogued/invalid sources are NOT in AccessRequestSource."""
+    invalid_sources = ["landing", "invalid_crm", "unknown_source"]
 
     for invalid_source in invalid_sources:
         with pytest.raises(ValueError):
@@ -296,13 +301,26 @@ async def test_access_request_requires_intake_domain(mock_supabase_service, mock
 
 
 @pytest.mark.anyio
-async def test_pe_source_cannot_create_access_request():
-    """source='private_estates_landing' with intake_domain='access_request' fails."""
-    # This should fail at the model validation level since private_estates sources
-    # are not in AccessRequestSource enum
-    with pytest.raises(ValueError):
-        # Attempting to use a non-existent source value
-        AccessRequestSource("private_estates_landing")
+async def test_pe_source_can_create_access_request(mock_supabase_service, mock_captcha):
+    """source='private_estates_landing' with intake_domain='access_request' succeeds."""
+    mock_captcha.verify.return_value = {"verified": True, "hostname": "test.com", "required": True}
+    mock_supabase_service.client.table.return_value.insert.return_value.execute.return_value.data = [
+        {"id": "request-pe-1", "status": "pending", "product": "data_lab", "email": "test@example.com"}
+    ]
+    service = AccessRequestService()
+    data = PublicAccessRequestCreate(
+        product=AccessRequestProduct.DATA_LAB,
+        source=AccessRequestSource.PRIVATE_ESTATES_LANDING,
+        full_name="PE Visitor",
+        email="visitor@example.com",
+        intended_use="Market analysis",
+        privacy_accepted=True,
+        gdpr_consent=True,
+        captcha_token="token"
+    )
+    result = await service.create_public_request(data)
+    assert result["status"] == "pending"
+    assert result["product"] == "data_lab"
 
 
 # ============================================================================

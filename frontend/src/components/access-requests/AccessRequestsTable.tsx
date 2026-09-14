@@ -21,6 +21,7 @@ interface AccessRequestsTableProps {
 
 const PRODUCT_LABELS: Record<AccessRequestProduct, string> = {
   syncxml: "GuestHub",
+  guesthub: "GuestHub",
   synergi: "Synergi",
   data_lab: "Data Lab",
 };
@@ -40,14 +41,17 @@ export function statusLabel(status: AccessRequestStatus, t: Translate): string {
 }
 
 export function sourceLabel(source: AccessRequestSource, t: Translate): string {
-  const labels: Record<AccessRequestSource, TranslationKey> = {
+  const labels: Partial<Record<AccessRequestSource, TranslationKey>> = {
     syncxml_landing: "accessRequestsSourceSyncXmlLanding",
     synergi_app: "accessRequestsSourceSynergiApp",
     data_lab_app: "accessRequestsSourceDataLabApp",
     nexus_manual: "accessRequestsSourceNexusManual",
     external_api: "accessRequestsSourceExternalApi",
   };
-  return labels[source] ? t(labels[source]) : "No reconocido";
+  if (source === "guesthub_app") return "GuestHub App";
+  if (source === "private_estates_landing") return "Private Estates Landing";
+  if (source === "private_estates_web") return "Private Estates Web";
+  return labels[source] ? t(labels[source]!) : (source || "No reconocido");
 }
 
 function formatDate(value?: string | null): string {

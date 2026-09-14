@@ -7,11 +7,15 @@ class AccessRequestProduct(str, Enum):
     SYNERGI = "synergi"
     DATA_LAB = "data_lab"
     SYNCXML = "syncxml"
+    GUESTHUB = "guesthub"
 
 class AccessRequestSource(str, Enum):
     SYNCXML_LANDING = "syncxml_landing"
     SYNERGI_APP = "synergi_app"
     DATA_LAB_APP = "data_lab_app"
+    GUESTHUB_APP = "guesthub_app"
+    PRIVATE_ESTATES_LANDING = "private_estates_landing"
+    PRIVATE_ESTATES_WEB = "private_estates_web"
     NEXUS_MANUAL = "nexus_manual"
     EXTERNAL_API = "external_api"
 
@@ -29,6 +33,9 @@ class AccessRequestDecisionStatus(str, Enum):
 
 class AccessRequestProvisioningStatus(str, Enum):
     NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    PROVISIONED = "provisioned"
+    FAILED = "failed"
     INVITE_READY = "invite_ready"
     PROVISIONING_PENDING = "provisioning_pending"
     NOT_APPLICABLE = "not_applicable"
@@ -83,6 +90,9 @@ class PublicAccessRequestCreate(BaseModel):
     # org_id is NOT accepted from public client
     product: AccessRequestProduct
     source: AccessRequestSource
+    source_system: Optional[str] = None
+    source_channel: Optional[str] = None
+    source_detail: Optional[str] = None
     schema_version: Optional[str] = "anclora-intake-v1"
     request_type: Optional[str] = None
     idempotency_key: Optional[str] = None
@@ -115,6 +125,8 @@ class PublicAccessRequestCreate(BaseModel):
             raise ValueError("Synergi app source requires Synergi product")
         if self.source == AccessRequestSource.DATA_LAB_APP and self.product != AccessRequestProduct.DATA_LAB:
             raise ValueError("Data Lab app source requires Data Lab product")
+        if self.source == AccessRequestSource.GUESTHUB_APP and self.product not in (AccessRequestProduct.GUESTHUB, AccessRequestProduct.SYNCXML):
+            raise ValueError("GuestHub app source requires GuestHub product")
         return self
 
     @model_validator(mode="after")
@@ -131,6 +143,10 @@ class LegacyDataLabAccessRequest(BaseModel):
     # This model matches what legacy landing/apps might send
     full_name: str
     email: EmailStr
+    source: Optional[AccessRequestSource] = None
+    source_system: Optional[str] = None
+    source_channel: Optional[str] = None
+    source_detail: Optional[str] = None
     profile_type: Optional[str] = None
     requested_scope: Optional[str] = None
     intended_use: Optional[str] = None
@@ -144,6 +160,10 @@ class LegacyPartnerAdmission(BaseModel):
     # This model matches what legacy landing/apps might send
     full_name: str
     email: EmailStr
+    source: Optional[AccessRequestSource] = None
+    source_system: Optional[str] = None
+    source_channel: Optional[str] = None
+    source_detail: Optional[str] = None
     service_category: Optional[str] = None
     service_summary: Optional[str] = None
     privacy_accepted: bool
@@ -251,6 +271,14 @@ class AccessRequestResponse(BaseModel):
     rejection_reason: Optional[str] = None
     invite_token: Optional[str] = None
     invite_expires_at: Optional[str] = None
+    identity_subject_id: Optional[str] = None
+    identity_invitation_id: Optional[str] = None
+    membership_id: Optional[str] = None
+    provisioning_status: Optional[str] = None
+    provisioning_error: Optional[str] = None
+    source_system: Optional[str] = None
+    source_channel: Optional[str] = None
+    source_detail: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     decision_email: Optional[DecisionEmailResult] = None

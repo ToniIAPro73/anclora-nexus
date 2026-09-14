@@ -1,10 +1,13 @@
 import { authFetch } from "./auth-fetch";
 
-export type AccessRequestProduct = "synergi" | "data_lab" | "syncxml";
+export type AccessRequestProduct = "synergi" | "data_lab" | "syncxml" | "guesthub";
 export type AccessRequestSource =
   | "syncxml_landing"
   | "synergi_app"
   | "data_lab_app"
+  | "guesthub_app"
+  | "private_estates_landing"
+  | "private_estates_web"
   | "nexus_manual"
   | "external_api";
 
@@ -32,6 +35,9 @@ export type AccessRequestStatus =
 export type AccessRequestDecisionStatus = AccessRequestStatus;
 export type AccessRequestProvisioningStatus =
   | "not_started"
+  | "in_progress"
+  | "provisioned"
+  | "failed"
   | "invite_ready"
   | "provisioning_pending"
   | "not_applicable";
@@ -84,6 +90,14 @@ export interface AccessRequest {
   rejection_reason?: string | null;
   invite_token?: string | null;
   invite_expires_at?: string | null;
+  identity_subject_id?: string | null;
+  identity_invitation_id?: string | null;
+  membership_id?: string | null;
+  provisioning_status?: AccessRequestProvisioningStatus | null;
+  provisioning_error?: string | null;
+  source_system?: string | null;
+  source_channel?: string | null;
+  source_detail?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   decision_email?: DecisionEmailResult | null;
