@@ -33,7 +33,7 @@ _CORS_ORIGINS = [
     o.strip()
     for o in _os.environ.get(
         "CORS_ALLOWED_ORIGINS",
-        "https://anclora-nexus-frontend.vercel.app,http://localhost:3000",
+        "https://nexus.anclora.com,https://private-estates-landing.anclora.com,https://private-estates.anclora.com,https://anclora-nexus-frontend.vercel.app,http://localhost:3000",
     ).split(",")
     if o.strip()
 ]
