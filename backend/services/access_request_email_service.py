@@ -35,14 +35,15 @@ def _product_brand(record: Dict[str, Any]) -> str:
     return _product_profile(record)["brand"]
 
 
-def _product_sender(record: Dict[str, Any]) -> str | None:
+def _nexus_sender() -> str | None:
+    """Return the canonical sender for Nexus admission decisions."""
     configured = settings.RESEND_FROM or settings.RESEND_FROM_EMAIL
     if not configured:
         return None
     _, address = parseaddr(str(configured))
     if not address:
         return None
-    return formataddr((_product_brand(record), address))
+    return formataddr(("Anclora Nexus", address))
 
 
 def _full_name(record: Dict[str, Any]) -> str:
@@ -158,7 +159,15 @@ def _syncxml_request_needs_sample_attachments(record: Dict[str, Any]) -> bool:
     return raw.get("needsSyntheticSampleAttachments") is True or value is False
 
 
-def _html_shell(*, title: str, intro: str, body_html: str, brand_name: str, eyebrow: str = "Acceso Anclora") -> str:
+def _html_shell(
+    *,
+    title: str,
+    intro: str,
+    body_html: str,
+    brand_name: str = "Anclora Nexus",
+    eyebrow: str = "Acceso Anclora",
+    footer_note: str = "Email transaccional de Anclora Nexus.",
+) -> str:
     return f"""
       <!doctype html>
       <html lang="es">
@@ -176,7 +185,7 @@ def _html_shell(*, title: str, intro: str, body_html: str, brand_name: str, eyeb
                       </td>
                       <td>
                         <div style="color:{BRAND_TEXT};font-size:18px;line-height:24px;font-weight:850;">{escape(brand_name)}</div>
-                        <div style="color:{BRAND_MUTED};font-size:13px;line-height:18px;">Piloto controlado</div>
+                        <div style="color:{BRAND_MUTED};font-size:13px;line-height:18px;">Decisiones de admisión</div>
                       </td>
                     </tr>
                   </table>
@@ -203,7 +212,7 @@ def _html_shell(*, title: str, intro: str, body_html: str, brand_name: str, eyeb
               </tr>
               <tr>
                 <td style="padding:16px 4px 0;color:{BRAND_MUTED};font-size:12px;line-height:18px;">
-                  Email transaccional de {escape(brand_name)}. El piloto es limitado, revocable y revisable.
+                  {escape(footer_note)}
                 </td>
               </tr>
             </table>
@@ -216,33 +225,46 @@ def _html_shell(*, title: str, intro: str, body_html: str, brand_name: str, eyeb
 
 
 def build_access_request_approved_email(record: Dict[str, Any]) -> Dict[str, str]:
-    product = _product_label(record)
+    product = f"Anclora {_product_label(record)}"
     full_name = _full_name(record)
-    subject = f"Anclora {product} · Solicitud aprobada"
+    subject = f"Anclora Nexus · Solicitud aprobada — {product}"
 
+    provisioning_case = str(record.get("provisioning_case") or "").strip().upper()
     provisioning_status = str(record.get("provisioning_status") or "").strip().lower()
-    provisioning_started = provisioning_status in {"invite_ready", "provisioned"} or any(
-        record.get(field) for field in ("identity_invitation_id", "membership_id")
-    )
-    if provisioning_started:
-        extra_text = "\nHemos iniciado el proceso seguro de acceso. Recibirás los siguientes pasos cuando corresponda.\n"
-        extra_html = _html_p("Hemos iniciado el proceso seguro de acceso. Recibirás los siguientes pasos cuando corresponda.")
+    if provisioning_status == "failed" or provisioning_case in {"FAILED", "ERROR"}:
+        paragraphs = [
+            "Tu solicitud ha sido aprobada, pero no hemos podido completar automáticamente la preparación del acceso.",
+            "Nuestro equipo revisará el proceso y te informará de los siguientes pasos.",
+        ]
+    elif provisioning_case == "CASO_A" or provisioning_status == "invite_ready" or record.get("identity_invitation_id"):
+        paragraphs = [
+            "Para completar tu acceso, recibirás un correo independiente de Anclora Identity con un enlace seguro para activar tu cuenta.",
+            f"Una vez completada la activación podrás acceder a {product}.",
+        ]
+    elif provisioning_case == "CASO_B" or provisioning_status == "provisioned" or record.get("membership_id"):
+        paragraphs = [
+            f"El acceso a {product} se ha añadido a tu identidad Anclora existente.",
+            "Ya puedes iniciar sesión utilizando tu cuenta habitual.",
+        ]
     else:
-        extra_text = "\nLa aprobación ha quedado registrada. Nuestro equipo continuará con los siguientes pasos cuando correspondan.\n"
-        extra_html = _html_p("La aprobación ha quedado registrada. Nuestro equipo continuará con los siguientes pasos cuando correspondan.")
+        paragraphs = [
+            "Tu solicitud ha sido aprobada y estamos preparando tu acceso.",
+            "Te avisaremos cuando el proceso esté listo para continuar.",
+        ]
 
     text = (
         f"Hola {full_name},\n\n"
-        f"Tu solicitud para Anclora {product} ha sido aprobada."
-        f"{extra_text}\n"
-        "Gracias,\nAnclora"
+        f"Tu solicitud de acceso a {product} ha sido aprobada.\n\n"
+        + "\n\n".join(paragraphs)
+        + "\n\nGracias por tu interés.\n\nAnclora Nexus"
     )
     html = _html_shell(
-        title=f"Solicitud aprobada",
-        intro=f"Hola {full_name}, tu solicitud para Anclora {product} ha sido aprobada.",
-        body_html=extra_html,
-        brand_name=_product_brand(record),
-        eyebrow=f"{product} · Acceso aprobado",
+        title="Solicitud aprobada",
+        intro=f"Hola {full_name}, tu solicitud de acceso a {product} ha sido aprobada.",
+        body_html="".join(_html_p(paragraph) for paragraph in paragraphs),
+        brand_name="Anclora Nexus",
+        eyebrow="Acceso aprobado",
+        footer_note=f"Este es un mensaje transaccional relacionado con tu solicitud de acceso a {product}.",
     )
     return {"to": _email_to(record), "subject": subject, "text": text, "html": html}
 
@@ -317,36 +339,32 @@ def build_syncxml_pilot_acceptance_email(record: Dict[str, Any], credentials: Di
 
 
 def build_access_request_rejected_email(record: Dict[str, Any]) -> Dict[str, str]:
-    product = _product_label(record)
+    product = f"Anclora {_product_label(record)}"
     full_name = _full_name(record)
     reason = str(record.get("rejection_reason") or "").strip()
-    reason_text = f"\nMotivo: {reason}\n" if reason else "\n"
-    subject = f"Anclora {product} · Solicitud revisada"
+    subject = f"Anclora Nexus · Solicitud no aprobada — {product}"
+    paragraphs = [
+        f"Gracias por tu interés en {product}.",
+        "Después de revisar tu solicitud, en este momento no podemos aprobar el acceso solicitado.",
+    ]
+    if reason:
+        paragraphs.append(f"Motivo: {reason}")
+    paragraphs.append(
+        "Esta decisión afecta únicamente a esta solicitud. Si cambian tus necesidades o las condiciones de acceso al producto, podrás presentar una nueva solicitud más adelante."
+    )
     text = (
         f"Hola {full_name},\n\n"
-        f"Hemos revisado tu solicitud para Anclora {product}. "
-        "En esta fase no avanzaremos con el acceso al piloto."
-        f"{reason_text}\n"
-        "Gracias,\nAnclora"
+        + "\n\n".join(paragraphs)
+        + "\n\nGracias por tu interés.\n\nAnclora Nexus"
     )
-    body_html = (
-        _html_p(f"Hemos revisado tu solicitud para Anclora {product}. En esta fase no avanzaremos con el acceso al piloto.")
-        + (
-            "<div style='margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,0.10);border-radius:8px;background:rgba(255,255,255,0.035);'>"
-            + f"<div style='color:{BRAND_ACCENT};font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;'>Motivo</div>"
-            + f"<div style='margin-top:8px;color:{BRAND_TEXT};font-size:14px;line-height:21px;'>{escape(reason)}</div>"
-            + "</div>"
-            if reason
-            else _html_p("Gracias por tu interés. Si cambia el alcance del piloto, podremos valorar de nuevo casos similares.")
-        )
-        + _html_p("El piloto controlado se limita a casos que encajan con pruebas sobre datos sintéticos o anonimizados y sin uso productivo oficial.")
-    )
+    body_html = "".join(_html_p(paragraph) for paragraph in paragraphs)
     html = _html_shell(
-        title="Solicitud revisada",
-        intro=f"Hola {full_name}, hemos completado la revisión de tu solicitud.",
+        title="Solicitud no aprobada",
+        intro=f"Hola {full_name}, gracias por tu interés en {product}.",
         body_html=body_html,
-        brand_name=_product_brand(record),
-        eyebrow=f"{product} · Revisión completada",
+        brand_name="Anclora Nexus",
+        eyebrow="Solicitud revisada",
+        footer_note=f"Este es un mensaje transaccional relacionado con tu solicitud de acceso a {product}.",
     )
     return {"to": _email_to(record), "subject": subject, "text": text, "html": html}
 
@@ -427,11 +445,11 @@ class AccessRequestEmailService:
             subject=mail["subject"],
             body=mail["text"],
             html=mail["html"],
-            from_email=_product_sender(record),
+            from_email=_nexus_sender(),
         )
         return {
             "status": "sent",
-            "transport": "smtp",
+            "transport": transport["provider"],
             "to": mail["to"],
             "subject": mail["subject"],
             "delivery": delivery,
