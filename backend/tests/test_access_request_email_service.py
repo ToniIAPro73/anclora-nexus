@@ -52,6 +52,29 @@ def test_approval_email_for_data_lab_includes_product_recipient_subject_and_name
     assert_non_empty_bodies(payload)
 
 
+@pytest.mark.parametrize(
+    ("product", "brand", "wrong_brand"),
+    [
+        ("data_lab", "Anclora Data Lab", "Anclora GuestHub"),
+        ("guesthub", "Anclora GuestHub", "Anclora Synergi"),
+        ("synergi", "Anclora Synergi", "Anclora GuestHub"),
+    ],
+)
+def test_approval_email_uses_product_aware_branding(product: str, brand: str, wrong_brand: str) -> None:
+    payload = build_access_request_approved_email(record(product))
+
+    assert brand in payload["html"]
+    assert wrong_brand not in payload["html"]
+    assert "No se ha creado ninguna cuenta externa" not in payload["text"]
+
+
+def test_guesthub_product_has_guesthub_branding() -> None:
+    payload = build_access_request_approved_email(record("guesthub"))
+
+    assert payload["subject"] == "Anclora GuestHub · Solicitud aprobada"
+    assert "Anclora GuestHub" in payload["html"]
+
+
 def test_rejection_email_includes_rejection_reason_when_present() -> None:
     payload = build_access_request_rejected_email(
         record("synergi", rejection_reason="Insufficient service coverage")

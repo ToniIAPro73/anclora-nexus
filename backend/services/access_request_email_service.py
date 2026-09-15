@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from html import escape
+from email.utils import formataddr, parseaddr
 from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
@@ -13,13 +14,35 @@ from backend.services.syncxml_sample_workbooks import build_syncxml_sample_attac
 logger = logging.getLogger(__name__)
 
 
-def _product_label(record: Dict[str, Any]) -> str:
+_PRODUCT_PROFILES = {
+    "data_lab": {"label": "Data Lab", "brand": "Anclora Data Lab"},
+    "guesthub": {"label": "GuestHub", "brand": "Anclora GuestHub"},
+    "syncxml": {"label": "GuestHub", "brand": "Anclora GuestHub"},
+    "synergi": {"label": "Synergi", "brand": "Anclora Synergi"},
+}
+
+
+def _product_profile(record: Dict[str, Any]) -> Dict[str, str]:
     product = str(record.get("product") or "").strip().lower()
-    if product == "data_lab":
-        return "Data Lab"
-    if product == "syncxml":
-        return "GuestHub"
-    return "Synergi"
+    return _PRODUCT_PROFILES.get(product, _PRODUCT_PROFILES["synergi"])
+
+
+def _product_label(record: Dict[str, Any]) -> str:
+    return _product_profile(record)["label"]
+
+
+def _product_brand(record: Dict[str, Any]) -> str:
+    return _product_profile(record)["brand"]
+
+
+def _product_sender(record: Dict[str, Any]) -> str | None:
+    configured = settings.RESEND_FROM or settings.RESEND_FROM_EMAIL
+    if not configured:
+        return None
+    _, address = parseaddr(str(configured))
+    if not address:
+        return None
+    return formataddr((_product_brand(record), address))
 
 
 def _full_name(record: Dict[str, Any]) -> str:
@@ -135,7 +158,7 @@ def _syncxml_request_needs_sample_attachments(record: Dict[str, Any]) -> bool:
     return raw.get("needsSyntheticSampleAttachments") is True or value is False
 
 
-def _html_shell(*, title: str, intro: str, body_html: str, eyebrow: str = "Anclora GuestHub") -> str:
+def _html_shell(*, title: str, intro: str, body_html: str, brand_name: str, eyebrow: str = "Acceso Anclora") -> str:
     return f"""
       <!doctype html>
       <html lang="es">
@@ -149,10 +172,10 @@ def _html_shell(*, title: str, intro: str, body_html: str, eyebrow: str = "Anclo
                   <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                     <tr>
                       <td style="padding-right:12px;">
-                        <img src="{escape(_syncxml_logo_url())}" width="48" height="48" alt="Anclora GuestHub" style="display:block;width:48px;height:48px;border-radius:8px;object-fit:contain;">
+                        <div style="width:48px;height:48px;border-radius:8px;background:{BRAND_ACCENT};color:#111827;font-size:14px;line-height:48px;font-weight:850;text-align:center;">A</div>
                       </td>
                       <td>
-                        <div style="color:{BRAND_TEXT};font-size:18px;line-height:24px;font-weight:850;">Anclora GuestHub</div>
+                        <div style="color:{BRAND_TEXT};font-size:18px;line-height:24px;font-weight:850;">{escape(brand_name)}</div>
                         <div style="color:{BRAND_MUTED};font-size:13px;line-height:18px;">Piloto controlado</div>
                       </td>
                     </tr>
@@ -180,7 +203,7 @@ def _html_shell(*, title: str, intro: str, body_html: str, eyebrow: str = "Anclo
               </tr>
               <tr>
                 <td style="padding:16px 4px 0;color:{BRAND_MUTED};font-size:12px;line-height:18px;">
-                  Email transaccional de Anclora GuestHub. El piloto es limitado, revocable y revisable.
+                  Email transaccional de {escape(brand_name)}. El piloto es limitado, revocable y revisable.
                 </td>
               </tr>
             </table>
@@ -197,16 +220,16 @@ def build_access_request_approved_email(record: Dict[str, Any]) -> Dict[str, str
     full_name = _full_name(record)
     subject = f"Anclora {product} · Solicitud aprobada"
 
-    extra_text = ""
-    extra_html = ""
-    extra_text = (
-        "\nNuestro equipo enviará los siguientes pasos cuando apliquen. "
-        "No se ha creado ninguna cuenta externa automáticamente con esta aprobación.\n"
+    provisioning_status = str(record.get("provisioning_status") or "").strip().lower()
+    provisioning_started = provisioning_status in {"invite_ready", "provisioned"} or any(
+        record.get(field) for field in ("identity_invitation_id", "membership_id")
     )
-    extra_html = (
-        _html_p("Nuestro equipo enviará los siguientes pasos cuando apliquen.")
-        + _html_p("No se ha creado ninguna cuenta externa automáticamente con esta aprobación.")
-    )
+    if provisioning_started:
+        extra_text = "\nHemos iniciado el proceso seguro de acceso. Recibirás los siguientes pasos cuando corresponda.\n"
+        extra_html = _html_p("Hemos iniciado el proceso seguro de acceso. Recibirás los siguientes pasos cuando corresponda.")
+    else:
+        extra_text = "\nLa aprobación ha quedado registrada. Nuestro equipo continuará con los siguientes pasos cuando correspondan.\n"
+        extra_html = _html_p("La aprobación ha quedado registrada. Nuestro equipo continuará con los siguientes pasos cuando correspondan.")
 
     text = (
         f"Hola {full_name},\n\n"
@@ -218,7 +241,8 @@ def build_access_request_approved_email(record: Dict[str, Any]) -> Dict[str, str
         title=f"Solicitud aprobada",
         intro=f"Hola {full_name}, tu solicitud para Anclora {product} ha sido aprobada.",
         body_html=extra_html,
-        eyebrow="Acceso aprobado",
+        brand_name=_product_brand(record),
+        eyebrow=f"{product} · Acceso aprobado",
     )
     return {"to": _email_to(record), "subject": subject, "text": text, "html": html}
 
@@ -283,7 +307,8 @@ def build_syncxml_pilot_acceptance_email(record: Dict[str, Any], credentials: Di
         title="Acceso al piloto controlado de GuestHub",
         intro=f"Hola {full_name}, tu solicitud encaja con el alcance actual del piloto controlado.",
         body_html=body_html,
-        eyebrow="Acceso aprobado",
+        brand_name=_product_brand(record),
+        eyebrow="GuestHub · Acceso aprobado",
     )
     payload: Dict[str, Any] = {"to": email, "subject": subject, "text": text, "html": html}
     if needs_samples:
@@ -320,14 +345,16 @@ def build_access_request_rejected_email(record: Dict[str, Any]) -> Dict[str, str
         title="Solicitud revisada",
         intro=f"Hola {full_name}, hemos completado la revisión de tu solicitud.",
         body_html=body_html,
-        eyebrow="Revisión completada",
+        brand_name=_product_brand(record),
+        eyebrow=f"{product} · Revisión completada",
     )
     return {"to": _email_to(record), "subject": subject, "text": text, "html": html}
 
 
 def build_syncxml_more_info_email(record: Dict[str, Any], message: str) -> Dict[str, str]:
+    product = _product_label(record)
     full_name = _full_name(record)
-    subject = "Anclora GuestHub · Necesitamos aclarar tu solicitud"
+    subject = f"Anclora {product} · Necesitamos aclarar tu solicitud"
     text = (
         f"Hola {full_name},\n\n"
         f"{message}\n\n"
@@ -341,7 +368,8 @@ def build_syncxml_more_info_email(record: Dict[str, Any], message: str) -> Dict[
             _html_p(message)
             + _html_p("Recuerda que esta fase funciona solo con datos sintéticos o anonimizados y sin envío automático a SES.HOSPEDAJES.")
         ),
-        eyebrow="Información adicional",
+        brand_name=_product_brand(record),
+        eyebrow=f"{product} · Información adicional",
     )
     return {"to": _email_to(record), "subject": subject, "text": text, "html": html}
 
@@ -360,7 +388,8 @@ def build_access_request_fallback_admin_email(record: Dict[str, Any]) -> Dict[st
         title="Validation Fallback Triggered",
         intro=f"Automated validation failed for {email}.",
         body_html=_html_p("Please review this request manually in the Nexus dashboard."),
-        eyebrow="Revisión manual",
+        brand_name=_product_brand(record),
+        eyebrow=f"{product} · Revisión manual",
     )
     admin_email = settings.ADMIN_EMAIL
     return {"to": admin_email, "subject": subject, "text": text, "html": html}
@@ -398,6 +427,7 @@ class AccessRequestEmailService:
             subject=mail["subject"],
             body=mail["text"],
             html=mail["html"],
+            from_email=_product_sender(record),
         )
         return {
             "status": "sent",

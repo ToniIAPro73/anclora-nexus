@@ -278,7 +278,7 @@ class AccessRequestResponse(BaseModel):
     reviewed_by: Optional[str] = None
     admin_notes: Optional[str] = None
     rejection_reason: Optional[str] = None
-    invite_token: Optional[str] = None
+    invite_token: Optional[str] = Field(default=None, exclude=True)
     invite_expires_at: Optional[str] = None
     identity_subject_id: Optional[str] = None
     identity_invitation_id: Optional[str] = None

@@ -142,6 +142,26 @@ async def retry_access_request_decision_email(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+@router.post("/{request_id}/provision/retry", response_model=AccessRequestResponse)
+async def retry_access_request_provisioning(
+    request_id: str,
+    org_id: str = Depends(get_org_id),
+    current_user=Depends(require_access_request_reviewer),
+):
+    try:
+        return await access_request_service.retry_provisioning(
+            org_id=org_id,
+            request_id=request_id,
+            reviewer_id=current_user.id,
+        )
+    except AccessRequestNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except AccessRequestInvalidTransitionError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
 @router.get("/{request_id}", response_model=AccessRequestResponse)
 async def get_access_request(
     request_id: str,

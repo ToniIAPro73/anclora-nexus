@@ -340,6 +340,103 @@ async def test_approve_sends_email_after_state_update(monkeypatch, service):
 
 
 @pytest.mark.anyio
+async def test_approve_failed_provisioning_does_not_create_local_token(monkeypatch, service):
+    rows = [access_request_record("request-1")]
+    monkeypatch.setattr(
+        "backend.services.access_request_service.supabase_service.client",
+        MockSupabaseClient(rows),
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
+        AsyncMock(
+            return_value={
+                "provisioning_status": "failed",
+                "provisioning_case": "IDENTITY_LOOKUP_FAILED",
+                "provisioning_error": "Identity lookup failed HTTP 502",
+            }
+        ),
+    )
+
+    result = await service.approve_request(
+        ORG_ID,
+        "request-1",
+        AccessRequestReviewDecision(),
+        reviewer_id=REVIEWER_ID,
+    )
+
+    assert result["provisioning_status"] == "failed"
+    assert result["invite_token"] is None
+    assert result["invite_expires_at"] is None
+    assert rows[0]["invite_token"] is None
+    assert rows[0]["invite_expires_at"] is None
+
+
+@pytest.mark.anyio
+async def test_retry_failed_provisioning_reuses_approved_request(monkeypatch, service):
+    rows = [
+        {
+            **access_request_record("request-1", status="approved", product="data_lab"),
+            "reviewed_by": REVIEWER_ID,
+            "reviewed_at": "2026-09-15T05:04:43+00:00",
+            "provisioning_status": "failed",
+            "provisioning_error": "Identity lookup failed HTTP 502",
+            "invite_token": "stale-local-fallback",
+            "invite_expires_at": "2026-09-29T05:04:43+00:00",
+        }
+    ]
+    audit_service = MockAuditService()
+    monkeypatch.setattr(
+        "backend.services.access_request_service.supabase_service.client",
+        MockSupabaseClient(rows),
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.access_request_audit_service",
+        audit_service,
+    )
+    provision = AsyncMock(
+        return_value={
+            "provisioning_status": "invite_ready",
+            "provisioning_case": "CASO_A",
+            "identity_invitation_id": "inv-real",
+            "invite_token": "must-not-be-persisted",
+            "invite_expires_at": "2026-09-29T05:04:43+00:00",
+        }
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
+        provision,
+    )
+
+    result = await service.retry_provisioning(ORG_ID, "request-1", REVIEWER_ID)
+
+    provision.assert_awaited_once()
+    assert result["status"] == "approved"
+    assert result["provisioning_status"] == "invite_ready"
+    assert result["identity_invitation_id"] == "inv-real"
+    assert result["invite_token"] is None
+    assert result["invite_expires_at"] is None
+    assert audit_service.events[-1]["event_type"] == "access_request.provisioning_retry"
+
+
+@pytest.mark.anyio
+async def test_retry_provisioning_rejects_existing_identity(monkeypatch, service):
+    rows = [
+        {
+            **access_request_record("request-1", status="approved", product="data_lab"),
+            "provisioning_status": "provisioned",
+            "identity_subject_id": "identity-1",
+        }
+    ]
+    monkeypatch.setattr(
+        "backend.services.access_request_service.supabase_service.client",
+        MockSupabaseClient(rows),
+    )
+
+    with pytest.raises(AccessRequestInvalidTransitionError):
+        await service.retry_provisioning(ORG_ID, "request-1", REVIEWER_ID)
+
+
+@pytest.mark.anyio
 async def test_reject_pending_sets_rejection_reason(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(

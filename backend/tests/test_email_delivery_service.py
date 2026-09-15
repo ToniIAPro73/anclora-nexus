@@ -58,12 +58,13 @@ def test_send_email_native_uses_resend_sdk(monkeypatch):
         subject="Solicitud aprobada",
         body="Texto fallback",
         html="<strong>HTML</strong>",
+        from_email="Anclora Data Lab <piloto@anclora.com>",
     )
 
     assert result["provider"] == "resend"
     assert result["message_id"] == "email_test_123"
     assert sent == {
-        "from": "Anclora SyncXML <piloto@anclora.com>",
+        "from": "Anclora Data Lab <piloto@anclora.com>",
         "to": ["toni@example.com"],
         "subject": "Solicitud aprobada",
         "text": "Texto fallback",

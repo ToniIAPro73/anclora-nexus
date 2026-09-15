@@ -486,9 +486,22 @@ class AccessRequestService:
             reviewer_id=reviewer_id,
         )
 
-        invite_token = prov_result.get("invite_token") or pending_record.get("invite_token") or self._generate_invite_token()
-        invite_expires_at = prov_result.get("invite_expires_at") or pending_record.get("invite_expires_at") or self._invite_expires_at()
-        invite_created = not pending_record.get("invite_token")
+        provisioning_status = prov_result.get(
+            "provisioning_status",
+            AccessRequestProvisioningStatus.INVITE_READY.value,
+        )
+        provisioning_failed = provisioning_status == AccessRequestProvisioningStatus.FAILED.value
+        invite_token = (
+            None
+            if provisioning_failed
+            else prov_result.get("invite_token") or pending_record.get("invite_token") or self._generate_invite_token()
+        )
+        invite_expires_at = (
+            None
+            if provisioning_failed
+            else prov_result.get("invite_expires_at") or pending_record.get("invite_expires_at") or self._invite_expires_at()
+        )
+        invite_created = bool(prov_result.get("identity_invitation_id"))
         now = self._now()
         update_payload: Dict[str, Any] = {
             "status": AccessRequestStatus.APPROVED.value,
@@ -497,7 +510,7 @@ class AccessRequestService:
             "admin_notes": decision.admin_notes,
             "invite_token": invite_token,
             "invite_expires_at": invite_expires_at,
-            "provisioning_status": prov_result.get("provisioning_status", AccessRequestProvisioningStatus.INVITE_READY.value),
+            "provisioning_status": provisioning_status,
             "updated_at": now,
         }
         if prov_result.get("identity_subject_id"):
@@ -575,6 +588,78 @@ class AccessRequestService:
         record["decision_email"] = await self._send_decision_email(record)
         record["lifecycle"] = self._build_lifecycle(record, [], record["decision_email"]).model_dump(mode="json")
         return record
+
+    async def retry_provisioning(
+        self,
+        org_id: str,
+        request_id: str,
+        reviewer_id: str,
+    ) -> Dict[str, Any]:
+        """Retry failed Identity provisioning without re-approving the request."""
+        reviewer_id = reviewer_id.strip()
+        if not reviewer_id:
+            raise ValueError("reviewer_id is required")
+
+        record = await self.get_request(org_id=org_id, request_id=request_id)
+        if record.get("status") != AccessRequestStatus.APPROVED.value:
+            raise AccessRequestInvalidTransitionError(
+                f"Access request {request_id} must be approved before provisioning retry"
+            )
+        if any(
+            record.get(field)
+            for field in ("identity_subject_id", "identity_invitation_id", "membership_id")
+        ):
+            raise AccessRequestInvalidTransitionError(
+                f"Access request {request_id} is already provisioned or has an active invitation"
+            )
+        if record.get("provisioning_status") not in {
+            None,
+            AccessRequestProvisioningStatus.FAILED.value,
+            AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
+        }:
+            raise AccessRequestInvalidTransitionError(
+                f"Access request {request_id} is not eligible for provisioning retry"
+            )
+
+        prov_result = await identity_provisioning_service.provision_approved_request(
+            request=record,
+            reviewer_id=reviewer_id,
+        )
+        now = self._now()
+        update_payload: Dict[str, Any] = {
+            "provisioning_status": prov_result.get(
+                "provisioning_status",
+                AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
+            ),
+            "provisioning_error": prov_result.get("provisioning_error"),
+            "identity_subject_id": prov_result.get("identity_subject_id"),
+            "identity_invitation_id": prov_result.get("identity_invitation_id"),
+            "membership_id": prov_result.get("membership_id"),
+            "invite_token": None,
+            "invite_expires_at": None,
+            "updated_at": now,
+        }
+        updated = await self._update_approved_request(
+            org_id=org_id,
+            request_id=request_id,
+            update_payload=update_payload,
+        )
+        await self._log_audit_event(
+            org_id=org_id,
+            access_request_id=request_id,
+            event_type="access_request.provisioning_retry",
+            actor_id=reviewer_id,
+            actor_type="user",
+            metadata={
+                "provisioning_status": update_payload["provisioning_status"],
+                "provisioning_case": prov_result.get("provisioning_case"),
+                "identity_subject_id": prov_result.get("identity_subject_id"),
+                "identity_invitation_id": prov_result.get("identity_invitation_id"),
+                "membership_id": prov_result.get("membership_id"),
+            },
+        )
+        updated["lifecycle"] = self._build_lifecycle(updated, []).model_dump(mode="json")
+        return updated
 
     async def get_lifecycle(
         self,
@@ -692,6 +777,26 @@ class AccessRequestService:
         if not result.data:
             raise AccessRequestInvalidTransitionError(
                 f"Access request {request_id} is no longer pending"
+            )
+        return result.data[0]
+
+    async def _update_approved_request(
+        self,
+        org_id: str,
+        request_id: str,
+        update_payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        result = (
+            supabase_service.client.table("access_requests")
+            .update(update_payload)
+            .eq("org_id", org_id)
+            .eq("id", request_id)
+            .eq("status", AccessRequestStatus.APPROVED.value)
+            .execute()
+        )
+        if not result.data:
+            raise AccessRequestInvalidTransitionError(
+                f"Access request {request_id} is no longer approved"
             )
         return result.data[0]
 

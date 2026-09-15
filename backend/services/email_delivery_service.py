@@ -3,7 +3,7 @@ from __future__ import annotations
 import smtplib
 import base64
 from email.message import EmailMessage
-from email.utils import make_msgid
+from email.utils import formataddr, make_msgid, parseaddr
 from typing import Any, Dict, List, Optional, TypedDict
 
 from backend.config import settings
@@ -40,11 +40,12 @@ def _send_with_resend(
     body: str,
     html: Optional[str] = None,
     attachments: Optional[List[EmailAttachment]] = None,
+    from_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     import resend
 
     resend.api_key = settings.RESEND_API_KEY
-    resend_from = _resend_from()
+    resend_from = from_email or _resend_from()
     params: resend.Emails.SendParams = {
         "from": str(resend_from),
         "to": [to_email],
@@ -81,6 +82,7 @@ def send_email_native(
     body: str,
     html: Optional[str] = None,
     attachments: Optional[List[EmailAttachment]] = None,
+    from_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     transport = get_email_transport_summary()
     if not transport["native_email_enabled"]:
@@ -93,11 +95,12 @@ def send_email_native(
             body=body,
             html=html,
             attachments=attachments,
+            from_email=from_email,
         )
 
     message = EmailMessage()
     message["To"] = to_email
-    message["From"] = (
+    message["From"] = from_email or (
         f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
         if settings.SMTP_FROM_NAME
         else str(settings.SMTP_FROM_EMAIL)
