@@ -1,3 +1,10 @@
+
+> [!IMPORTANT]
+> This repository is governed by the Anclora canonical contracts under `.anclora/`.
+> Agent-specific defaults, personal presets, or global agent configurations must NOT override those contracts.
+> Read `.anclora/AGENT_PROJECT_CONTEXT.md` before starting substantial work.
+
+
 # AGENTS.md — Constitución del Proyecto Anclora Nexus
 
 Este archivo define las reglas duras, restricciones y criterios de validación para agentes de desarrollo en este proyecto. Estas reglas son **inmutables** durante la fase beta (Q1-Q2 2026).
