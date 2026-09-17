@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -24,6 +24,7 @@ class CaptchaVerificationService:
         token: Optional[str],
         remote_ip: Optional[str] = None,
         expected_action: Optional[str] = None,
+        expected_hostnames: Optional[Iterable[str]] = None,
     ) -> Dict[str, Any]:
         if not self._provider_enabled(provider):
             return {"provider": "none", "verified": False, "required": False}
@@ -73,6 +74,10 @@ class CaptchaVerificationService:
             raise CaptchaVerificationError(f"{p} verification failed")
         if expected_action and body.get("action") != expected_action:
             raise CaptchaVerificationError(f"{p} action mismatch")
+        allowed_hostnames = {hostname.strip().lower() for hostname in (expected_hostnames or []) if hostname.strip()}
+        hostname = str(body.get("hostname") or "").strip().lower()
+        if allowed_hostnames and hostname not in allowed_hostnames:
+            raise CaptchaVerificationError(f"{p} hostname mismatch")
 
         return {
             "provider": p,

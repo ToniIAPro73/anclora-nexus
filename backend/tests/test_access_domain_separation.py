@@ -19,7 +19,8 @@ from backend.models.access_requests import (
     PublicAccessRequestCreate,
 )
 from backend.services.access_request_service import AccessRequestService
-from backend.services.captcha_verification_service import CaptchaVerificationError
+from backend.services.captcha_verification_service import CaptchaVerificationError, CaptchaVerificationService
+from backend.config import settings
 from backend.api.routes.public import router as public_router
 
 
@@ -301,6 +302,28 @@ async def test_private_estates_commercial_endpoint_rejects_verification_error(
     mock_supabase_public.client.table.assert_not_called()
 
 
+@pytest.mark.parametrize("hostname", ["other.anclora.com", None])
+def test_turnstile_rejects_hostname_outside_private_estates_allowlist(hostname):
+    service = CaptchaVerificationService()
+    response = MagicMock()
+    response.read.return_value = (
+        '{"success": true, "action": "private_estates_contact", '
+        + (f'"hostname": "{hostname}"' if hostname else '"hostname": null')
+        + "}"
+    ).encode()
+    response.__enter__.return_value = response
+
+    with patch.object(settings, "TURNSTILE_SECRET_KEY", "configured"):
+        with patch("backend.services.captcha_verification_service.urlopen", return_value=response):
+            with pytest.raises(CaptchaVerificationError, match="hostname mismatch"):
+                service.verify(
+                    provider="turnstile",
+                    token="runtime-token",
+                    expected_action="private_estates_contact",
+                    expected_hostnames=["private-estates.anclora.com"],
+                )
+
+
 @pytest.mark.anyio
 async def test_private_estates_commercial_endpoint_persists_verified_metadata(
     public_app, mock_supabase_public, mock_captcha_public
@@ -328,6 +351,13 @@ async def test_private_estates_commercial_endpoint_persists_verified_metadata(
     assert persisted["context"]["captcha_provider"] == "turnstile"
     assert persisted["context"]["captcha_verified"] is True
     assert "verified-token" not in str(persisted)
+    mock_captcha_public.verify.assert_called_once_with(
+        provider="turnstile",
+        token="verified-token",
+        remote_ip="127.0.0.1",
+        expected_action="private_estates_contact",
+        expected_hostnames=["private-estates.anclora.com"],
+    )
 
 
 @pytest.mark.anyio

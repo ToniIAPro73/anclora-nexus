@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     
     TURNSTILE_SECRET_KEY: Optional[str] = None
     TURNSTILE_VERIFY_URL: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    TURNSTILE_PRIVATE_ESTATES_HOSTNAMES: str = "private-estates.anclora.com"
     
     N8N_WEBHOOK_URL: Optional[str] = None
     N8N_API_KEY: Optional[str] = None

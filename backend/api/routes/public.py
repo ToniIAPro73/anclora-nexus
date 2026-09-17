@@ -284,6 +284,7 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any], request: Request)
                 token=token,
                 remote_ip=request.client.host if request.client else None,
                 expected_action="private_estates_contact",
+                expected_hostnames=settings.TURNSTILE_PRIVATE_ESTATES_HOSTNAMES.split(","),
             )
         except CaptchaVerificationError:
             raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
