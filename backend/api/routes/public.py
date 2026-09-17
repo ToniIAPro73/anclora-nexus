@@ -12,7 +12,7 @@ from backend.models.partner_workspaces import (
     PublicSharedOpportunityStatusUpdate,
 )
 from backend.services.partner_workspace_service import partner_workspace_service
-from backend.services.captcha_verification_service import CaptchaVerificationError
+from backend.services.captcha_verification_service import CaptchaVerificationError, captcha_verification_service
 from backend.models.valuation_requests import PublicValuationRequestCreate
 from backend.models.ingestion import PublicLeadCaptureRequest
 from backend.services.valuation_request_service import valuation_request_service
@@ -234,7 +234,7 @@ COMMERCIAL_LEAD_VALID_SOURCES = {
 }
 
 
-async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]:
+async def _handle_commercial_lead_intake(body: Dict[str, Any], request: Request) -> Dict[str, Any]:
     """Shared logic for commercial lead intake endpoints."""
     from backend.services.supabase_service import supabase_service
 
@@ -272,6 +272,27 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
             detail="At least one contact field is required: applicant.email, contact_email, or email",
         )
 
+    captcha_result = {"provider": "none", "verified": False, "required": False}
+    if source in {"private_estates_landing", "private_estates_web"}:
+        provider = str(body.get("captcha_provider") or "").strip().lower()
+        token = body.get("captcha_token")
+        if provider != "turnstile":
+            raise HTTPException(status_code=400, detail="Turnstile verification is required")
+        try:
+            captcha_result = captcha_verification_service.verify(
+                provider=provider,
+                token=token,
+                remote_ip=request.client.host if request.client else None,
+                expected_action="private_estates_contact",
+            )
+        except CaptchaVerificationError:
+            raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
+        except Exception:
+            logger.exception("commercial_lead CAPTCHA verification unavailable")
+            raise HTTPException(status_code=502, detail="CAPTCHA verification unavailable")
+        if not captcha_result.get("verified"):
+            raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
+
     # Normalize applicant structure if flat fields were sent
     if not isinstance(applicant, dict):
         applicant = {}
@@ -284,9 +305,14 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
 
     context = body.get("context") or {}
     if isinstance(context, dict):
+        context = dict(context)
         for field in ("source_system", "source_channel", "source_detail"):
             if body.get(field) and field not in context:
                 context[field] = body.get(field)
+        if source in {"private_estates_landing", "private_estates_web"}:
+            context["captcha_provider"] = captcha_result.get("provider")
+            context["captcha_verified"] = bool(captcha_result.get("verified"))
+            context["captcha_hostname"] = captcha_result.get("hostname")
 
     # Generate idempotency_key if not provided
     idempotency_key = body.get("idempotency_key") or str(uuid4())
@@ -363,19 +389,19 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any]) -> Dict[str, Any]
 
 
 @router.post("/intake/commercial-leads", status_code=status.HTTP_202_ACCEPTED)
-async def intake_commercial_lead(body: Dict[str, Any]):
+async def intake_commercial_lead(body: Dict[str, Any], request: Request):
     """
     Public endpoint for commercial lead intake (e.g. Private Estates landing page).
     No authentication required. Validates domain, source, and contact fields,
     then routes to valuation_requests or leads_pipeline depending on request_type.
     """
-    return await _handle_commercial_lead_intake(body)
+    return await _handle_commercial_lead_intake(body, request)
 
 
 @router.post("/lead-intake", status_code=status.HTTP_202_ACCEPTED)
-async def lead_intake_alias(body: Dict[str, Any]):
+async def lead_intake_alias(body: Dict[str, Any], request: Request):
     """
     Backward-compatibility alias for /intake/commercial-leads.
     Used by PE Landing which calls this path.
     """
-    return await _handle_commercial_lead_intake(body)
+    return await _handle_commercial_lead_intake(body, request)

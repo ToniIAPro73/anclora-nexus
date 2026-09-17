@@ -17,7 +17,14 @@ class CaptchaVerificationService:
         p = (provider or "").strip().lower()
         return p in ["recaptcha", "turnstile"]
 
-    def verify(self, *, provider: Optional[str], token: Optional[str], remote_ip: Optional[str] = None) -> Dict[str, Any]:
+    def verify(
+        self,
+        *,
+        provider: Optional[str],
+        token: Optional[str],
+        remote_ip: Optional[str] = None,
+        expected_action: Optional[str] = None,
+    ) -> Dict[str, Any]:
         if not self._provider_enabled(provider):
             return {"provider": "none", "verified": False, "required": False}
 
@@ -31,7 +38,13 @@ class CaptchaVerificationService:
         else:  # turnstile
             if not settings.TURNSTILE_SECRET_KEY:
                 if settings.ENVIRONMENT == "development" or settings.APP_ENV == "development":
-                    return {"provider": "turnstile", "verified": True, "required": False, "hostname": "dev.localhost"}
+                    return {
+                        "provider": "turnstile",
+                        "verified": True,
+                        "required": False,
+                        "hostname": "dev.localhost",
+                        "action": expected_action,
+                    }
                 raise CaptchaVerificationError("Turnstile secret key is not configured")
             verify_url = settings.TURNSTILE_VERIFY_URL
             secret = settings.TURNSTILE_SECRET_KEY
@@ -58,6 +71,8 @@ class CaptchaVerificationService:
 
         if not bool(body.get("success")):
             raise CaptchaVerificationError(f"{p} verification failed")
+        if expected_action and body.get("action") != expected_action:
+            raise CaptchaVerificationError(f"{p} action mismatch")
 
         return {
             "provider": p,
@@ -65,6 +80,7 @@ class CaptchaVerificationService:
             "required": True,
             "score": body.get("score"),
             "hostname": body.get("hostname"),
+            "action": body.get("action"),
         }
 
 

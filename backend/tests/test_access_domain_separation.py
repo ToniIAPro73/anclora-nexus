@@ -19,6 +19,7 @@ from backend.models.access_requests import (
     PublicAccessRequestCreate,
 )
 from backend.services.access_request_service import AccessRequestService
+from backend.services.captcha_verification_service import CaptchaVerificationError
 from backend.api.routes.public import router as public_router
 
 
@@ -44,6 +45,19 @@ def mock_captcha():
 def mock_supabase_public():
     """Mock Supabase service for public API routes (imported locally inside functions)."""
     with patch("backend.services.supabase_service.supabase_service") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_captcha_public():
+    """Mock Turnstile verification for public commercial lead routes."""
+    with patch("backend.api.routes.public.captcha_verification_service") as mock:
+        mock.verify.return_value = {
+            "provider": "turnstile",
+            "verified": True,
+            "required": True,
+            "hostname": "private-estates.test",
+        }
         yield mock
 
 
@@ -221,7 +235,103 @@ async def test_commercial_endpoint_rejects_synergi_source(public_app, mock_supab
 
 
 @pytest.mark.anyio
-async def test_commercial_endpoint_accepts_private_estates_landing(public_app, mock_supabase_public):
+async def test_private_estates_commercial_endpoint_requires_turnstile(public_app, mock_supabase_public):
+    """Private Estates leads fail closed when Turnstile metadata is absent."""
+    async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/public/intake/commercial-leads",
+            json={
+                "intake_domain": "commercial_lead",
+                "source": "private_estates_web",
+                "applicant": {"email": "test@example.com"},
+            },
+        )
+
+    assert response.status_code == 400
+    assert "turnstile" in response.text.lower()
+    mock_supabase_public.client.table.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_private_estates_commercial_endpoint_rejects_invalid_turnstile(
+    public_app, mock_supabase_public, mock_captcha_public
+):
+    """A failed Turnstile result prevents commercial lead persistence."""
+    mock_captcha_public.verify.return_value = {
+        "provider": "turnstile",
+        "verified": False,
+        "required": True,
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/public/intake/commercial-leads",
+            json={
+                "intake_domain": "commercial_lead",
+                "source": "private_estates_web",
+                "applicant": {"email": "test@example.com"},
+                "captcha_provider": "turnstile",
+                "captcha_token": "invalid-token",
+            },
+        )
+
+    assert response.status_code == 400
+    mock_supabase_public.client.table.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_private_estates_commercial_endpoint_rejects_verification_error(
+    public_app, mock_supabase_public, mock_captcha_public
+):
+    mock_captcha_public.verify.side_effect = CaptchaVerificationError("invalid")
+
+    async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/public/intake/commercial-leads",
+            json={
+                "intake_domain": "commercial_lead",
+                "source": "private_estates_web",
+                "applicant": {"email": "test@example.com"},
+                "captcha_provider": "turnstile",
+                "captcha_token": "invalid-token",
+            },
+        )
+
+    assert response.status_code == 400
+    mock_supabase_public.client.table.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_private_estates_commercial_endpoint_persists_verified_metadata(
+    public_app, mock_supabase_public, mock_captcha_public
+):
+    """A verified Turnstile result is recorded without persisting the token."""
+    mock_query = MagicMock()
+    mock_supabase_public.client.table.return_value = mock_query
+    mock_query.insert.return_value = mock_query
+    mock_query.execute.return_value.data = [{"id": "lead-verified"}]
+
+    async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/public/intake/commercial-leads",
+            json={
+                "intake_domain": "commercial_lead",
+                "source": "private_estates_web",
+                "applicant": {"email": "test@example.com"},
+                "captcha_provider": "turnstile",
+                "captcha_token": "verified-token",
+            },
+        )
+
+    assert response.status_code == 202
+    persisted = mock_query.insert.call_args.args[0]
+    assert persisted["context"]["captcha_provider"] == "turnstile"
+    assert persisted["context"]["captcha_verified"] is True
+    assert "verified-token" not in str(persisted)
+
+
+@pytest.mark.anyio
+async def test_commercial_endpoint_accepts_private_estates_landing(public_app, mock_supabase_public, mock_captcha_public):
     """POST /api/public/intake/commercial-leads accepts source='private_estates_landing'."""
     # Setup mock to simulate successful insert
     mock_query = MagicMock()
@@ -236,7 +346,9 @@ async def test_commercial_endpoint_accepts_private_estates_landing(public_app, m
                 "intake_domain": "commercial_lead",
                 "source": "private_estates_landing",  # Valid source
                 "applicant": {"email": "test@example.com"},
-                "request_type": "seller_valuation_request"
+                "request_type": "seller_valuation_request",
+                "captcha_provider": "turnstile",
+                "captcha_token": "test-token",
             }
         )
 
@@ -359,7 +471,7 @@ async def test_access_domain_routes_to_access_requests_table(mock_supabase_servi
 
 
 @pytest.mark.anyio
-async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_supabase_public):
+async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_supabase_public, mock_captcha_public):
     """intake_domain='commercial_lead' routes to either valuation_requests or leads_pipeline."""
     # Setup mock
     mock_query = MagicMock()
@@ -375,7 +487,9 @@ async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_
                 "intake_domain": "commercial_lead",
                 "source": "private_estates_landing",
                 "applicant": {"email": "test@example.com"},
-                "request_type": "seller_valuation_request"
+                "request_type": "seller_valuation_request",
+                "captcha_provider": "turnstile",
+                "captcha_token": "test-token",
             }
         )
 
@@ -389,7 +503,7 @@ async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_
 
 
 @pytest.mark.anyio
-async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(public_app, mock_supabase_public):
+async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(public_app, mock_supabase_public, mock_captcha_public):
     """intake_domain='commercial_lead' without seller_valuation_request routes to leads_pipeline."""
     # Setup mock
     mock_query = MagicMock()
@@ -405,7 +519,9 @@ async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(pu
                 "intake_domain": "commercial_lead",
                 "source": "private_estates_landing",
                 "applicant": {"email": "test@example.com"},
-                "request_type": "general_inquiry"
+                "request_type": "general_inquiry",
+                "captcha_provider": "turnstile",
+                "captcha_token": "test-token",
             }
         )
 
