@@ -69,3 +69,6 @@ uploads/
 .codex/
 MEMORY.md
 
+
+# Registro local de recaptura del manual (scripts/manual/recapture-manual.mjs)
+tmp/manual-recapture-log.json

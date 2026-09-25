@@ -159,7 +159,7 @@ class DocxManualExporter:
         list_content = []
 
         # Screenshot mapping (relative to base_dir)
-        base_dir = "/home/dev/proyectos/anclora-nexus"
+        base_dir = str(Path(__file__).resolve().parents[1])
         screenshot_map = {
             "### 3.1 Dashboard": f"{base_dir}/public/docs/manual-usuario/assets/screenshots/01-dashboard.png",
             "### 3.2 Leads": f"{base_dir}/public/docs/manual-usuario/assets/screenshots/02-leads.png",
@@ -339,7 +339,7 @@ if __name__ == "__main__":
             lang = sys.argv[2].lower()
 
     # Rutas
-    base_dir = "/home/dev/proyectos/anclora-nexus"
+    base_dir = str(Path(__file__).resolve().parents[1])
 
     if lang == "en":
         markdown_path = f"{base_dir}/public/docs/manual-usuario/MANUAL_USUARIO_ANCLORA_NEXUS_EN.md"

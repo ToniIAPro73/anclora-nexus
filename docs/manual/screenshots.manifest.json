@@ -1,0 +1,174 @@
+{
+  "$comment": "Estado: CURRENT = UI vigente (solo branding actualizado); STALE = UI obsoleta, pendiente de recaptura; PLACEHOLDER = imagen de relleno o ausente; STATIC = asset de marca, no se captura.",
+  "version": 1,
+  "change": "CHG-0014",
+  "generated": "2026-09-25",
+  "product": "Anclora Nexus",
+  "screenshots_dir": "public/docs/manual-usuario/assets/screenshots",
+  "env_file": "frontend/.env.local",
+  "app_url_default": "http://localhost:3000",
+  "start": "cd frontend && npm run dev   # backend según frontend/.env.local",
+  "generator": "python3 scripts/convert-manual-to-docx.py --lang es && python3 scripts/convert-manual-to-docx.py --lang en",
+  "outputs": [
+    "public/docs/manual-usuario/MANUAL_USUARIO_ANCLORA_NEXUS.docx",
+    "public/docs/manual-usuario/MANUAL_USUARIO_ANCLORA_NEXUS_EN.docx"
+  ],
+  "qa_domains": [
+    "@anclora.local"
+  ],
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "device_scale_factor": 1,
+  "cookies": [],
+  "roles": {
+    "qa": {
+      "login": "manual",
+      "login_path": "/login",
+      "email_env": "MANUAL_QA_EMAIL",
+      "password_env": "MANUAL_QA_PASSWORD",
+      "default_email": "qa.nexus@anclora.local"
+    }
+  },
+  "required_env": [],
+  "data": "Datos sintéticos de la cuenta QA de Nexus (leads, propiedades, tareas). Nunca capturar datos de clientes reales.",
+  "screens": [
+    {
+      "file": "01-dashboard.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «3.1 Dashboard»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "02-leads.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «3.2 Leads»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "03-properties.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «3.3 Properties»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "04-tasks.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «3.4 Tasks»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "05-team.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «3.5 Team»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "06-prospection-unified.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «4.2 Prospection operativa»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "07-sellers.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «4.3 Seller Pipeline»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "08-opportunity-ranking.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «4.4 Opportunity Ranking»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "09-intelligence.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «4.5 Intelligence»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "10-statefox-bridge.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «StateFox Bridge»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "11-ingestion.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.1 Ingestion»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "12-data-quality.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.2 Data Quality»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "13-feed-orchestrator.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.3 Feed Orchestrator»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "14-automation-alerting.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.4 Automation & Alerting»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "15-command-center.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.5 Command Center»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "16-deal-margin-simulator.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.6 Deal Margin Simulator»; la imagen actual es un marcador de posición."
+    },
+    {
+      "file": "17-source-observatory.png",
+      "mode": "assisted",
+      "role": "qa",
+      "path": "/",
+      "status": "PLACEHOLDER",
+      "instructions": "Pantalla «5.7 Source Observatory»; la imagen actual es un marcador de posición."
+    }
+  ]
+}
