@@ -80,7 +80,7 @@ async def test_legacy_data_lab_wrapper(mock_service):
     assert response.status_code == 201
     args, _ = mock_service.create_public_request.call_args
     assert args[0].product == "data_lab"
-    assert args[0].source == "external_api"
+    assert args[0].source == "data_lab_app"
 
 @pytest.mark.anyio
 async def test_legacy_partner_admission_wrapper(mock_service):
@@ -102,4 +102,4 @@ async def test_legacy_partner_admission_wrapper(mock_service):
     assert response.status_code == 201
     args, _ = mock_service.create_public_request.call_args
     assert args[0].product == "synergi"
-    assert args[0].source == "external_api"
+    assert args[0].source == "synergi_app"

@@ -151,7 +151,7 @@ async def test_access_request_analytics_summary_counts_and_attention(monkeypatch
     assert summary.pending_count == 1
     assert summary.approved_count == 2
     assert summary.rejected_count == 1
-    assert summary.requests_by_product == {"synergi": 3, "data_lab": 1, "syncxml": 0}
+    assert summary.requests_by_product == {"synergi": 3, "data_lab": 1, "guesthub": 0, "syncxml": 0}
     assert summary.pending_older_than_24h == 1
     assert summary.pending_older_than_72h == 1
     assert summary.average_review_time_hours == 10.67

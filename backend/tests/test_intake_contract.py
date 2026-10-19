@@ -44,7 +44,8 @@ def _base(
 def test_syncxml_pilot_valid():
     """SyncXML landing + pilot_request + syncxml → valid."""
     contract = AncloraIntakeV1(**_base())
-    assert contract.target_product == TargetProduct.SYNCXML
+    # Legacy SYNCXML alias is normalized to GUESTHUB.
+    assert contract.target_product == TargetProduct.GUESTHUB
     assert contract.intake_domain == IntakeDomain.ACCESS_REQUEST
 
 
@@ -146,28 +147,28 @@ def test_commercial_lead_with_target_product_rejected():
         AncloraIntakeV1(**data)
 
 
-def test_pe_landing_cannot_create_access_request():
-    """PE Landing source + access_request domain → INVALID (rule 6)."""
+def test_pe_landing_can_create_access_request():
+    """PE Landing source + access_request domain → VALID (landing sources may create access requests)."""
     data = _base(
         intake_domain=IntakeDomain.ACCESS_REQUEST,
         request_type=IntakeRequestType.PILOT_REQUEST,
         source=IntakeSource.PRIVATE_ESTATES_LANDING,
         target_product=TargetProduct.SYNCXML,
     )
-    with pytest.raises(ValueError, match="cannot create an access_request"):
-        AncloraIntakeV1(**data)
+    contract = AncloraIntakeV1(**data)
+    assert contract.intake_domain == IntakeDomain.ACCESS_REQUEST
 
 
-def test_pe_web_cannot_create_access_request():
-    """PE web source + access_request domain → INVALID (rule 6)."""
+def test_pe_web_can_create_access_request():
+    """PE web source + access_request domain → VALID (no source is commercial-only today)."""
     data = _base(
         intake_domain=IntakeDomain.ACCESS_REQUEST,
         request_type=IntakeRequestType.PILOT_REQUEST,
         source=IntakeSource.PRIVATE_ESTATES_WEB,
         target_product=TargetProduct.SYNCXML,
     )
-    with pytest.raises(ValueError, match="cannot create an access_request"):
-        AncloraIntakeV1(**data)
+    contract = AncloraIntakeV1(**data)
+    assert contract.intake_domain == IntakeDomain.ACCESS_REQUEST
 
 
 def test_wrong_request_type_for_access_domain_rejected():
