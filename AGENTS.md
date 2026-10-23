@@ -307,11 +307,12 @@ Todo desarrollo en este repo sigue la metodología SDD unificada del ecosistema 
 
 ### Flujo de trabajo Git
 
-- Rama base de desarrollo: **`development`**
-- Los agentes crean ramas desde `development`: `feat/<agente>-<descripcion>`, `fix/...`, `chore/...`
-- Las ramas se mergean de vuelta a `development` via PR
-- Promoción manual: `development → staging → production → main`
-- Nunca commitear directamente en `main`, `staging` ni `production`
+- Rama de trabajo normal: **`development`**; trabajar directamente en la rama existente.
+- No crear ramas `feat/*`, `fix/*`, `chore/*`, worktrees ni PR para el trabajo normal, salvo instrucción explícita actual de Toni.
+- Al iniciar, comprobar rama y estado. Si hay una rama distinta con cambios sin commit o commits propios, conservarla y detenerse antes de editar; informar y esperar indicaciones. Si está limpia y no tiene commits propios, cambiar a la rama existente `development`; nunca crearla como alternativa.
+- Mantener los cambios sin commit hasta que Toni los valide en el entorno de desarrollo. Después, hacer un commit y push a `origin/development` según el contrato del workspace.
+- Promoción manual: solo tras la revisión de Preview y la instrucción exacta `PROMOTE=FULL`, mediante `development → staging → production → main`.
+- Nunca commitear directamente en `main`, `staging` ni `production`.
 
 ### Principios de desarrollo (Specboot)
 
@@ -332,7 +333,7 @@ Toda feature o fix sigue este flujo antes de escribir código:
 - Crear tasks: `sdd/features/<nombre>/<nombre>-tasks-v1.md`
 - Implementar tarea a tarea (tests primero)
 - Validar contra criterios de aceptación de la spec
-- PR contra `development`, con referencia a la spec
+- Con la spec validada, presentar los cambios en el entorno `development` y esperar la validación expresa de Toni antes del commit/push; no crear un PR para el flujo normal.
 
 ### Reglas obligatorias
 
