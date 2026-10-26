@@ -6,7 +6,6 @@ import {
   Shield, MapPin,
   Globe, UserCircle, Check
 } from 'lucide-react'
-import supabase from '@/lib/supabase'
 import { Card } from '@/components/ui/card'
 
 export default function PublicProfilePage() {
@@ -21,16 +20,11 @@ export default function PublicProfilePage() {
     const fetchProfile = async () => {
       try {
         setLoading(true)
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', params.id)
-          .single()
-
-        if (error || !data) {
+        const response = await fetch(`/api/public-profile/${encodeURIComponent(String(params.id))}`, { cache: 'no-store' })
+        if (!response.ok) {
           setNotFound(true)
         } else {
-          setProfile(data)
+          setProfile(await response.json())
         }
       } catch {
         setNotFound(true)

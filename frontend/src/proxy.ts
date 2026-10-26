@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { normalizeNextPath } from '@/lib/private-area-access'
+import { createNeonDataClient } from '@/lib/neon-data-server'
 
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({
@@ -95,14 +96,18 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=session-invalid', req.url))
     }
 
+    const dataClient = process.env.DATABASE_PROVIDER === 'neon'
+      ? createNeonDataClient('authenticated', user.id)
+      : supabase
+
     // Fetch full membership data and cache it
     const [profileData, membershipData] = await Promise.all([
-      supabase
+      dataClient
         .from('user_profiles')
         .select('org_id')
         .eq('id', user.id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from('organization_members')
         .select('*')
         .eq('user_id', user.id)

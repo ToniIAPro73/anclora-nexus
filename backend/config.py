@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    DATABASE_PROVIDER: str = "supabase"
+    NEON_DATA_API_URL: Optional[str] = None
+    NEON_JWT_PRIVATE_KEY: Optional[str] = None
+    NEON_JWT_KEY_ID: Optional[str] = None
+    NEON_JWT_ISSUER: str = "anclora-nexus"
+    NEON_JWT_AUDIENCE: str = "authenticated"
+    NEON_SERVICE_JWT_TTL_SECONDS: int = 900
     PUBLIC_CTA_ORG_ID: str = "00000000-0000-0000-0000-000000000000"
     LEGACY_SINGLE_TENANT_ORG_ID: Optional[str] = "9d6cb56d-3f21-4f7b-80ea-797a7c2c62cf"
     ALLOW_LEGACY_ORG_FALLBACK: bool = False

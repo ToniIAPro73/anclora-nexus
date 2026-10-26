@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import type { OrgMembership } from '@/lib/contexts/OrgContext'
+import { createNeonDataClient } from '@/lib/neon-data-server'
 
 /**
  * Server-side function to fetch user and org data
@@ -34,14 +35,18 @@ export async function fetchUserAndOrg() {
       return { user: null, membership: null, orgId: null }
     }
 
+    const dataClient = process.env.DATABASE_PROVIDER === 'neon'
+      ? createNeonDataClient('authenticated', user.id)
+      : supabase
+
     // Fetch user profile and org memberships in parallel
     const [profileData, membershipsData] = await Promise.all([
-      supabase
+      dataClient
         .from('user_profiles')
         .select('org_id')
         .eq('id', user.id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from('organization_members')
         .select('*')
         .eq('user_id', user.id)
