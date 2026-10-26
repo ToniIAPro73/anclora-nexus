@@ -1,41 +1,40 @@
-# Checklist de validación — política de promoción (2026-10-23)
-
-> Entrega de cambios de flujo y configuración. El SHA final queda registrado en el commit que incluye este checklist.
+# Checklist de validación — migración de runtime de base de datos a Neon
 
 **Repositorio:** anclora-nexus
 **Rama:** development
-**Entorno de validación:** entorno development/Preview del repositorio, pendiente de revisión de Toni
-**Datos:** no se usaron ni modificaron datos de aplicación.
+**Fecha:** 2026-10-26
+**Alcance:** preparar el enrutamiento PostgreSQL de Nexus a Neon. Supabase Auth y Storage permanecen; Anclora Identity no forma parte de este cambio.
+**Despliegue y entorno de producción:** no modificados.
 
-## 1. Qué cambia
-- El workflow promote.yml admite el dispatch de cadena completa con target=full y source_sha revisado en Preview.
-- El contrato runtime define validación expresa en development, Preview y promoción completa asíncrona.
+## Cambios incluidos
 
-## 2. Ya comprobado por el agente
-| Comprobación | Comando o método | Resultado |
-| --- | --- | --- |
-| Sintaxis de workflows | Parser YAML sobre los 41 `promote.yml` del workspace | PASS |
-| Integridad del diff | `git diff --check` | PASS |
+- Añade firma de JWT ES256 para Neon Data API en backend y frontend, y rutas de intercambio de token/JWKS.
+- Enruta las consultas de base de datos por Neon cuando se selecciona el proveedor, manteniendo Supabase para Auth y Storage.
+- Añade migraciones de roles, grants y RLS para la rama aislada de revisión de Neon.
+- Restringe los campos devueltos por el perfil público.
 
-## 3. Pruebas no ejecutadas (NOT_RUN)
-| Prueba | Motivo concreto |
+## Validación realizada
+
+| Comprobación | Resultado |
 | --- | --- |
-| Suite de la aplicación, lint y build | Cambios de políticas y configuración de promoción; no se ejecutaron suites por no afectar código de aplicación. |
-| Revisión visual y smoke test de Preview | Pendiente de Toni en el entorno publicado tras este push. |
-| Resultado de CI/deployments | No se esperará ni consultará; Toni revisa los entornos según la política acordada. |
+| TypeScript `npm run typecheck` | PASS |
+| ESLint de archivos modificados | PASS |
+| Suite frontend `npm test -w frontend` | PASS — 17 pruebas |
+| `npm run lint` | PASS |
+| `npm run build` | PASS |
+| Unittests focalizados `backend.tests.test_neon_tokens` | PASS — 3 pruebas |
+| `git diff --check` | PASS |
+| Suite Python completa `python -m pytest` | NOT RUN — pytest no está instalado en el entorno virtual del repo |
 
-## 4. Checklist para Toni
-| # | Dónde | Pasos | Resultado esperado | Bloqueante |
-| --- | --- | --- | --- | --- |
-| 1 | development | Revisar el contrato y `promote.yml` de este repositorio | Cambios acordes con el flujo aprobado | Sí |
-| 2 | Preview | Confirmar la Preview correspondiente al SHA de este push | La revisión corresponde al SHA publicado | Sí, antes de promoción |
+## Estado de Neon y límites de la validación
 
-## 5. Riesgos y limitaciones
-- La promoción requiere el SHA exacto revisado en Preview. Si `development` avanza, el workflow completo se detendrá y requerirá revisión nueva.
-- Los resultados de staging, production y main quedan bajo revisión de Toni.
+- La migración de roles/grants/RLS se aplicó solo a la rama temporal `nexus-neon-cutover-security-review-20261026`; la rama productiva `main` no fue alterada.
+- Las comprobaciones de esquema y políticas fueron de solo lectura; no se modificaron registros de aplicación.
+- No se cambió la configuración de producción ni se desplegó este código.
+- La verificación funcional en Preview sigue pendiente: requiere desplegar y configurar las variables de Preview, enlazar la URL JWKS pública, restringir CORS y probar con la identidad dedicada de QA, incluidos RLS, lecturas/escrituras permitidas, aislamiento entre organizaciones, Auth, Storage y polling.
 
-## 6. Decisión de Toni
-- [ ] Validado en development
-- [ ] Validado en Preview
-- [ ] PROMOTE=FULL
-- [ ] No se promociona. Motivo: ______________________
+## Revisión de Toni
+
+- [ ] Revisado en `development`
+- [ ] Preview validado con la identidad dedicada de QA
+- [ ] Autorizar promoción (si procede)
