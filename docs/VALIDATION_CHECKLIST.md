@@ -12,6 +12,7 @@
 - Bandera explícita desactivada por defecto; la activación requiere que las variables servidor y cliente coincidan.
 - Rutas de login y callbacks heredados deshabilitadas cuando se activa el piloto Identity.
 - Documentación de configuración Preview y limitaciones conocidas.
+- El inicio OIDC solicita `prompt=login` para que, después de cerrar la sesión local de Nexus, Identity vuelva a mostrar el formulario de credenciales y permita cambiar de cuenta.
 
 ## Validación realizada
 
@@ -22,6 +23,7 @@
 | `npm run build -w frontend` | PASS |
 | `.venv/bin/python -m pytest backend/tests/test_neon_tokens.py -q` | PASS — 4 pruebas |
 | `git diff --cached --check` con `core.whitespace=cr-at-eol` | PASS; lockfile mantiene finales CRLF existentes |
+| Revisión del flujo de logout/login para el cambio `prompt=login` | Código revisado; la prueba interactiva con otra cuenta queda pendiente del deployment |
 
 ## Pendiente de revisión en Preview
 

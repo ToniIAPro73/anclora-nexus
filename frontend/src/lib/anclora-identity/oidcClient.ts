@@ -14,6 +14,10 @@ export function buildLoginRedirect(config: client.Configuration, input: { redire
   return client.buildAuthorizationUrl(config, {
     redirect_uri: input.redirectUri,
     scope: 'openid profile email anclora_platform',
+    // Nexus logout clears only this application's session cookie. Ask Identity
+    // to show its login prompt on the next sign-in instead of silently reusing
+    // the Identity SSO session, so users can switch accounts.
+    prompt: 'login',
     code_challenge: input.codeChallenge,
     code_challenge_method: 'S256',
     state: input.state,
