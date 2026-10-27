@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import type { OrgMembership } from '@/lib/contexts/OrgContext'
 import { createNeonDataClient } from '@/lib/neon-data-server'
+import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
+import { getNexusIdentitySession } from '@/lib/anclora-identity/session'
 
 /**
  * Server-side function to fetch user and org data
@@ -9,6 +11,17 @@ import { createNeonDataClient } from '@/lib/neon-data-server'
  */
 export async function fetchUserAndOrg() {
   try {
+    if (isAncloraIdentityEnabled()) {
+      const identitySession = await getNexusIdentitySession()
+      if (!identitySession) return { user: null, membership: null, orgId: null }
+      const user = {
+        id: identitySession.userId,
+        email: identitySession.email,
+        user_metadata: { full_name: identitySession.name, avatar_url: identitySession.avatarUrl },
+      }
+      const membership = { org_id: identitySession.orgId, role: identitySession.orgRole } as OrgMembership
+      return { user, membership, orgId: identitySession.orgId }
+    }
     const cookieStore = await cookies()
     type CookieSetOptions = Parameters<typeof cookieStore.set>[2]
     const supabase = createServerClient(

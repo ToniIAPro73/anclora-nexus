@@ -2,11 +2,18 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createNeonJwt } from '@/lib/neon-jwt'
+import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
+import { getNexusIdentitySession } from '@/lib/anclora-identity/session'
 
 export const runtime = 'nodejs'
 
 export async function POST() {
   try {
+    if (isAncloraIdentityEnabled()) {
+      const session = await getNexusIdentitySession()
+      if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
+      return NextResponse.json(createNeonJwt('authenticated', session.userId, 300), { headers: { 'Cache-Control': 'no-store, private' } })
+    }
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

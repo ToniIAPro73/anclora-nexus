@@ -1,12 +1,14 @@
 import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
 
 function createSupabaseResponse() {
   return NextResponse.json({ ok: true })
 }
 
 export async function POST(request: Request) {
+  if (isAncloraIdentityEnabled()) return NextResponse.json({ message: 'Sign in through Anclora Identity.' }, { status: 404 })
   try {
     const body = await request.json().catch(() => null)
     const email = String(body?.email || '').trim()

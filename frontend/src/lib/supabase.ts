@@ -77,6 +77,7 @@ const authClient: SupabaseLike =
     : createNoopSupabaseClient()
 
 const usesNeon = process.env.NEXT_PUBLIC_DATABASE_PROVIDER === 'neon'
+const usesAncloraIdentity = process.env.NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED === 'true'
 const neonDataApiUrl = process.env.NEXT_PUBLIC_NEON_DATA_API_URL || ''
 let neonToken: { value: string; expiresAt: number } | null = null
 let neonTokenPromise: Promise<string> | null = null
@@ -97,13 +98,14 @@ async function getNeonToken() {
 }
 
 if (typeof window !== 'undefined' && 'auth' in authClient) {
-  authClient.auth.onAuthStateChange(() => { neonToken = null })
+  if (usesAncloraIdentity) window.addEventListener('anclora-auth-change', () => { neonToken = null })
+  else authClient.auth.onAuthStateChange(() => { neonToken = null })
 }
 
 const neonBaseUrl = neonDataApiUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '')
 const neonClient =
-  typeof window !== 'undefined' && usesNeon && neonBaseUrl && supabaseAnonKey
-    ? createClient(neonBaseUrl, supabaseAnonKey, {
+  typeof window !== 'undefined' && usesNeon && neonBaseUrl
+    ? createClient(neonBaseUrl, 'neon-data-api', {
         auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
         global: {
           fetch: async (input, init) => {
@@ -118,9 +120,44 @@ const neonClient =
     : null
 
 const databaseClient = usesNeon && neonClient ? neonClient : authClient
+const identityAuth = {
+  async getSession() {
+    const response = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
+    if (!response.ok) return { data: { session: null }, error: new Error('Unable to read Anclora Identity session') }
+    const payload = await response.json()
+    return { data: { session: payload.session ?? null }, error: null }
+  },
+  async getUser() {
+    const response = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
+    if (!response.ok) return { data: { user: null }, error: new Error('Unable to read Anclora Identity session') }
+    const payload = await response.json()
+    return { data: { user: payload.user ?? null }, error: null }
+  },
+  async signOut() {
+    const response = await fetch('/api/auth/anclora-identity/logout', { method: 'POST', credentials: 'same-origin' })
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('anclora-auth-change'))
+    return { error: response.ok ? null : new Error('Unable to end Nexus session') }
+  },
+  onAuthStateChange(callback: (event: string, session: unknown) => void) {
+    const listener = () => { void this.getSession().then(({ data }) => callback(data.session ? 'SIGNED_IN' : 'SIGNED_OUT', data.session)) }
+    window.addEventListener('anclora-auth-change', listener)
+    return { data: { subscription: { unsubscribe() { window.removeEventListener('anclora-auth-change', listener) } } } }
+  },
+  async signInWithOAuth() {
+    if (typeof window !== 'undefined') window.location.assign('/api/auth/anclora-identity/login')
+    return { data: null, error: null }
+  },
+  async signInWithPassword() { return { data: null, error: new Error('Sign in through Anclora Identity') } },
+  async signUp() { return { data: null, error: new Error('Account provisioning is managed by Anclora Identity') } },
+  async resetPasswordForEmail() { return { data: null, error: new Error('Password recovery is managed by Anclora Identity') } },
+  async updateUser() { return { data: null, error: new Error('Account changes are managed by Anclora Identity') } },
+  async exchangeCodeForSession() { return { data: null, error: new Error('Use the Anclora Identity callback') } },
+  async setSession() { return { data: null, error: new Error('Use the Anclora Identity session') } },
+}
 const supabase: SupabaseLike = new Proxy(databaseClient as SupabaseLike, {
   get(target, property) {
-    if (property === 'auth' || property === 'storage' || property === 'channel') {
+    if (property === 'auth') return usesAncloraIdentity && typeof window !== 'undefined' ? identityAuth : Reflect.get(authClient, property, authClient)
+    if (property === 'storage' || property === 'channel') {
       return Reflect.get(authClient, property, authClient)
     }
     const value = Reflect.get(target, property, target)

@@ -3,10 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { createNeonJwt } from '@/lib/neon-jwt'
 
 const neonApiUrl = process.env.NEON_DATA_API_URL || process.env.NEXT_PUBLIC_NEON_DATA_API_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export function createNeonDataClient(role: 'authenticated' | 'service_role', subject: string) {
-  if (!neonApiUrl || !supabaseAnonKey) {
+  if (!neonApiUrl) {
     throw new Error('Neon Data API configuration is missing')
   }
   const { token } = createNeonJwt(role, subject, role === 'service_role' ? 900 : 300)

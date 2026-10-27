@@ -2,8 +2,10 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { normalizeNextPath } from '@/lib/private-area-access'
+import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
 
 export async function GET(request: Request) {
+  if (isAncloraIdentityEnabled()) return NextResponse.json({ error: 'Use the Anclora Identity callback.' }, { status: 404 })
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
@@ -75,6 +77,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (isAncloraIdentityEnabled()) return NextResponse.json({ error: 'Account management is handled by Anclora Identity.' }, { status: 404 })
   try {
     const body = await request.json()
     const password = String(body?.password || '')

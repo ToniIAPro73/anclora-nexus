@@ -3,8 +3,37 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { normalizeNextPath } from '@/lib/private-area-access'
 import { createNeonDataClient } from '@/lib/neon-data-server'
+import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
+import { NEXUS_IDENTITY_SESSION_COOKIE, readNexusIdentitySession } from '@/lib/anclora-identity/session-token'
+
+function proxyIdentityRequest(req: NextRequest) {
+  const res = NextResponse.next()
+  const pathname = req.nextUrl.pathname
+  const isLoginPage = pathname.startsWith('/login')
+  const isAuthRoute = pathname.startsWith('/auth/')
+  const isInvitePage = pathname.startsWith('/invite/')
+  const isPrivateAreaPublic = pathname === '/private-area' || pathname.startsWith('/private-area/')
+  if (isAuthRoute || isInvitePage || isPrivateAreaPublic) return res
+
+  const session = readNexusIdentitySession(req.cookies.get(NEXUS_IDENTITY_SESSION_COOKIE)?.value)
+  if (!session && !isLoginPage) {
+    res.cookies.delete(NEXUS_IDENTITY_SESSION_COOKIE)
+    res.cookies.delete('nexus-org-id')
+    res.cookies.delete('nexus-org-role')
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+  if (session && isLoginPage) {
+    return NextResponse.redirect(new URL(normalizeNextPath(req.nextUrl.searchParams.get('next'), '/dashboard'), req.url))
+  }
+  if (session) {
+    res.cookies.set('nexus-org-id', session.orgId, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 60 * 60 * 24 * 7 })
+    res.cookies.set('nexus-org-role', session.orgRole, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 60 * 60 * 24 * 7 })
+  }
+  return res
+}
 
 export async function proxy(req: NextRequest) {
+  if (isAncloraIdentityEnabled()) return proxyIdentityRequest(req)
   let res = NextResponse.next({
     request: {
       headers: req.headers,

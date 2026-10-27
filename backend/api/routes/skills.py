@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Header, HTTPException
 
 from backend.config import settings
+from backend.api.deps import get_current_user
 from backend.services.finops import finops_service
 from backend.services.org_context_service import resolve_legacy_org_id_http
 from backend.services.llm_service import llm_service
@@ -39,11 +40,7 @@ async def _resolve_org_id(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        token = authorization.split(" ", 1)[1] if " " in authorization else authorization
-        user_response = supabase_service.client.auth.get_user(token)
-        user = user_response.user
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid session")
+        user = await get_current_user(authorization)
         response = (
             supabase_service.client.table("user_profiles")
             .select("org_id")

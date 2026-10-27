@@ -56,6 +56,7 @@ export default function LoginPage() {
     return params.get('mode') === 'reset' ? 'reset' : 'login'
   })
   const [confirmPassword, setConfirmPassword] = useState('')
+  const identityEnabled = process.env.NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED === 'true'
   const [nextPath] = useState(() => {
     if (typeof window === 'undefined') return '/dashboard'
     const params = new URLSearchParams(window.location.search)
@@ -70,6 +71,13 @@ export default function LoginPage() {
   }))
 
   useEffect(() => {
+    if (identityEnabled && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const inviteCode = params.get('invite')
+      const next = params.get('next') || (inviteCode ? `/invite/${encodeURIComponent(inviteCode)}` : '/dashboard')
+      window.location.replace(`/api/auth/anclora-identity/login?next=${encodeURIComponent(next)}`)
+      return
+    }
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
@@ -88,9 +96,14 @@ export default function LoginPage() {
       return
     }
 
-  }, [router])
+  }, [identityEnabled, router])
+
+  if (identityEnabled) {
+    return <main className="flex min-h-screen items-center justify-center bg-navy-deep p-6 text-soft-white"><p>Conectando con Anclora Identity…</p></main>
+  }
 
   useEffect(() => {
+    if (identityEnabled) return
     const rawHash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''
     if (!rawHash) return
     const hashParams = new URLSearchParams(rawHash)
@@ -106,7 +119,7 @@ export default function LoginPage() {
           window.location.replace(base)
         })
     }
-  }, [])
+  }, [identityEnabled])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

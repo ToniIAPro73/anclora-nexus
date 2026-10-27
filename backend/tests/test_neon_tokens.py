@@ -7,6 +7,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
 from backend.services.neon_tokens import create_neon_jwt
+from backend.api.deps import verify_nexus_access_token
+from backend.config import settings
 
 
 def _decode_part(value: str) -> bytes:
@@ -80,3 +82,24 @@ class NeonTokenTests(unittest.TestCase):
                 audience="authenticated",
                 ttl_seconds=3601,
             )
+
+    def test_backend_verifies_signed_nexus_access_token(self):
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        previous = (settings.NEON_JWT_PRIVATE_KEY, settings.NEON_JWT_KEY_ID, settings.NEON_JWT_ISSUER, settings.NEON_JWT_AUDIENCE)
+        try:
+            settings.NEON_JWT_PRIVATE_KEY = self._pem(private_key)
+            settings.NEON_JWT_KEY_ID = 'nexus-test-key'
+            settings.NEON_JWT_ISSUER = 'anclora-nexus-test'
+            settings.NEON_JWT_AUDIENCE = 'authenticated'
+            token = create_neon_jwt(
+                role='authenticated', subject='00000000-0000-4000-8000-000000000001',
+                private_key=self._pem(private_key), key_id='nexus-test-key',
+                issuer='anclora-nexus-test', audience='authenticated', ttl_seconds=120,
+            )
+            user = verify_nexus_access_token(token)
+            self.assertEqual(user.id, '00000000-0000-4000-8000-000000000001')
+            header, claims, signature = token.split('.')
+            tampered_signature = ('A' if signature[0] != 'A' else 'B') + signature[1:]
+            self.assertIsNone(verify_nexus_access_token(f'{header}.{claims}.{tampered_signature}'))
+        finally:
+            settings.NEON_JWT_PRIVATE_KEY, settings.NEON_JWT_KEY_ID, settings.NEON_JWT_ISSUER, settings.NEON_JWT_AUDIENCE = previous

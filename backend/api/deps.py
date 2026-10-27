@@ -1,15 +1,68 @@
+import base64
+import json
+import time
+from types import SimpleNamespace
 from typing import Optional
 from uuid import UUID
 from fastapi import Header, HTTPException, Depends
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from backend.config import settings
 from backend.api.middleware import verify_org_membership
 from backend.models.membership import UserRole
 from backend.services.supabase_service import supabase_service
 
+
+def _decode_b64url(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def verify_nexus_access_token(token: str):
+    """Verify short-lived ES256 access JWTs minted by the Nexus frontend."""
+    try:
+        encoded_header, encoded_claims, encoded_signature = token.split(".")
+        header = json.loads(_decode_b64url(encoded_header))
+        claims = json.loads(_decode_b64url(encoded_claims))
+        if header.get("alg") != "ES256" or header.get("kid") != settings.NEON_JWT_KEY_ID:
+            return None
+        pem = (settings.NEON_JWT_PRIVATE_KEY or "").replace("\\n", "\n")
+        if not pem:
+            return None
+        private_key = serialization.load_pem_private_key(pem.encode(), password=None)
+        if not isinstance(private_key, ec.EllipticCurvePrivateKey) or not isinstance(private_key.curve, ec.SECP256R1):
+            return None
+        signature = _decode_b64url(encoded_signature)
+        if len(signature) != 64:
+            return None
+        der_signature = encode_dss_signature(int.from_bytes(signature[:32], "big"), int.from_bytes(signature[32:], "big"))
+        private_key.public_key().verify(der_signature, f"{encoded_header}.{encoded_claims}".encode("ascii"), ec.ECDSA(hashes.SHA256()))
+        now = int(time.time())
+        audience = claims.get("aud")
+        if isinstance(audience, list):
+            valid_audience = settings.NEON_JWT_AUDIENCE in audience
+        else:
+            valid_audience = audience == settings.NEON_JWT_AUDIENCE
+        if (
+            claims.get("iss") != settings.NEON_JWT_ISSUER
+            or not valid_audience
+            or claims.get("role") != "authenticated"
+            or not isinstance(claims.get("sub"), str)
+            or int(claims.get("exp", 0)) <= now
+            or int(claims.get("iat", now + 61)) > now + 60
+            or int(claims.get("exp", 0)) - int(claims.get("iat", 0)) > 3600
+        ):
+            return None
+        UUID(claims["sub"])
+        return SimpleNamespace(id=claims["sub"], email=None, user_metadata={})
+    except (ValueError, TypeError, KeyError, InvalidSignature, json.JSONDecodeError):
+        return None
+
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """
-    Simple Supabase Auth dependency. 
-    In v0, we assume the frontend sends a valid Supabase JWT.
+    Accept the Nexus short-lived ES256 token and the legacy Supabase token
+    during the staged Identity migration.
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -22,6 +75,10 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
                 id = "00000000-0000-0000-0000-000000000001"
                 email = "admin@anclora.com"
             return DevUser()
+
+    nexus_user = verify_nexus_access_token(token)
+    if nexus_user:
+        return nexus_user
 
     try:
         user_response = supabase_service.client.auth.get_user(token)

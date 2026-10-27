@@ -160,8 +160,10 @@ export default function ProfilePage() {
 
       const { error: profileError } = await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
       if (profileError) throw profileError
-      const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
-      if (authError) throw authError
+      if (process.env.NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED !== 'true') {
+        const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
+        if (authError) throw authError
+      }
 
       await fetchProfile()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
