@@ -9,8 +9,6 @@ import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch, MagicMock
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 import httpx
 import pytest
@@ -27,7 +25,7 @@ from backend.services.webhook_dispatcher import (
 
 
 # ---------------------------------------------------------------------------
-# Fake Supabase client for audit_log
+# Fake Neon client for audit_log
 # ---------------------------------------------------------------------------
 
 
@@ -71,7 +69,7 @@ def _make_service(
     service = WebhookDispatcherService(
         webhook_url=webhook_url,
         webhook_secret=webhook_secret,
-        supabase_client=client,
+        database_client=client,
         audit_secret="test-audit-secret-key-12345",
     )
     return service, client

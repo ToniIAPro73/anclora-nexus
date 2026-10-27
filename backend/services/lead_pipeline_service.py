@@ -21,7 +21,7 @@ from backend.models.lead_pipeline import (
     StaleLeadInfo,
     TemperatureMetrics,
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class LeadPipelineService:
     """Service for lead pipeline metrics and staleness detection."""
 
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     async def get_pipeline_metrics(self, org_id: str) -> PipelineMetricsResponse:
         """Return pipeline metrics: leads by temperature, owner, funnel, and stale leads.

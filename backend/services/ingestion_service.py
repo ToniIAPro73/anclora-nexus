@@ -13,13 +13,13 @@ from backend.models.ingestion import (
 from backend.models.finops import UsageEventSchema
 from backend.services.finops import finops_service
 from backend.services.hnwi_scoring_service import hnwi_scoring_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.skills.seller_signal_ingest import run_seller_signal_ingest
 
 
 class IngestionService:
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     def _serialize_payload(self, payload: Any) -> Dict[str, Any]:
         if hasattr(payload, "model_dump"):
@@ -523,7 +523,7 @@ class IngestionService:
                         "signals": [raw_item],
                     },
                     llm=None,  # unused by the skill
-                    db=supabase_service,
+                    db=neon_service,
                 )
                 created_ids = result.get("created_ids") or []
                 processed_entity_id = str(created_ids[0]) if created_ids else None

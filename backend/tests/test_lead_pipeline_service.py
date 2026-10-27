@@ -14,8 +14,6 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 import pytest
 
@@ -65,7 +63,7 @@ class FakeExecuteResult:
 
 
 class FakeQueryBuilder:
-    """Chainable mock for Supabase query builder."""
+    """Chainable mock for Neon query builder."""
 
     def __init__(self, data=None):
         self._data = data
@@ -264,7 +262,7 @@ class TestStalenessDetection:
 
 
 class TestCommandCenterEvents:
-    @patch("backend.services.lead_pipeline_service.supabase_service")
+    @patch("backend.services.lead_pipeline_service.neon_service")
     def test_emit_temperature_change_event(self, mock_svc):
         mock_table = MagicMock()
         mock_svc.client.table.return_value = mock_table
@@ -291,7 +289,7 @@ class TestCommandCenterEvents:
         assert inserted_row["metadata_json"]["old_value"] == "cold"
         assert inserted_row["metadata_json"]["new_value"] == "hot"
 
-    @patch("backend.services.lead_pipeline_service.supabase_service")
+    @patch("backend.services.lead_pipeline_service.neon_service")
     def test_emit_owner_change_event(self, mock_svc):
         mock_table = MagicMock()
         mock_svc.client.table.return_value = mock_table
@@ -315,7 +313,7 @@ class TestCommandCenterEvents:
         assert inserted_row["metadata_json"]["old_value"] is None
         assert inserted_row["metadata_json"]["new_value"] == "owner-xyz"
 
-    @patch("backend.services.lead_pipeline_service.supabase_service")
+    @patch("backend.services.lead_pipeline_service.neon_service")
     def test_emit_staleness_alert(self, mock_svc):
         mock_table = MagicMock()
         mock_svc.client.table.return_value = mock_table
@@ -349,7 +347,7 @@ class TestCommandCenterEvents:
 
 
 class TestGetPipelineMetrics:
-    @patch("backend.services.lead_pipeline_service.supabase_service")
+    @patch("backend.services.lead_pipeline_service.neon_service")
     def test_returns_full_metrics(self, mock_svc):
         now = datetime.now(timezone.utc)
         old_time = (now - timedelta(hours=72)).isoformat()

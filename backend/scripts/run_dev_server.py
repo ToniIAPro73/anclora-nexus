@@ -28,8 +28,7 @@ if not os.environ.get("IDENTITY_SERVICE_TOKEN"):
 os.environ.setdefault("IDENTITY_SERVICE_URL", "https://anclora-identity-development.onrender.com")
 os.environ.setdefault("IDENTITY_PROVISIONING_ENABLED", "true")
 os.environ.setdefault("GUESTHUB_APP_URL", "https://anclora-guesthub-o95pj8bt7-pmi140979-6354s-projects.vercel.app")
-os.environ.setdefault("ALLOW_REAL_SUPABASE_WRITE", "true")
-os.environ.setdefault("SUPABASE_URL", "https://jtlnmypcrgmzxeuiffup.supabase.co")
+os.environ.setdefault("ALLOW_REAL_NEON_WRITE", "true")
 
 print("Launching Anclora Nexus Backend in Development mode...")
 print(f"  Identity Service URL: {os.environ.get('IDENTITY_SERVICE_URL')}")

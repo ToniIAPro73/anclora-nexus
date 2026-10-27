@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 from .email_delivery_service import get_email_transport_summary, send_email_native
-from .supabase_service import SupabaseService
+from .neon_service import NeonService
 from .seller_memory_service import seller_memory_service
 from ..models.sellers import (
     NexusSellerCreate,
@@ -129,7 +129,7 @@ def _latest_supervised_delivery(interactions: List[Dict[str, Any]], channel: str
 
 
 async def create_seller(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     data: NexusSellerCreate,
 ) -> Dict[str, Any]:
@@ -137,7 +137,7 @@ async def create_seller(
     Create a new Nexus Seller prospect.
 
     Args:
-        db: SupabaseService instance
+        db: NeonService instance
         org_id: Organization UUID
         data: NexusSellerCreate payload
 
@@ -161,7 +161,7 @@ async def create_seller(
 
 
 async def get_sellers(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     zona: Optional[str] = None,
     estado: Optional[str] = None,
@@ -174,7 +174,7 @@ async def get_sellers(
     List Nexus Sellers with optional filters.
 
     Args:
-        db: SupabaseService instance
+        db: NeonService instance
         org_id: Organization UUID
         zona: Filter by zone (optional)
         estado: Filter by contact state (optional)
@@ -209,7 +209,7 @@ async def get_sellers(
 
 
 async def get_seller(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
 ) -> Optional[Dict[str, Any]]:
@@ -226,7 +226,7 @@ async def get_seller(
 
 
 async def update_seller_estado(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     estado: str,
@@ -237,7 +237,7 @@ async def update_seller_estado(
     Automatically sets timestamp fields based on state transition.
 
     Args:
-        db: SupabaseService instance
+        db: NeonService instance
         org_id: Organization UUID
         seller_id: Seller UUID
         estado: New EstadoContactoEnum value
@@ -278,7 +278,7 @@ async def update_seller_estado(
 
 
 async def update_seller(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     data: NexusSellerUpdate,
@@ -306,7 +306,7 @@ async def update_seller(
 
 
 async def get_seller_stats(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
 ) -> Dict[str, Any]:
     """
@@ -365,7 +365,7 @@ async def get_seller_stats(
 # ═══════════════════════════════════════════════════════════════
 
 async def add_interaction(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     tipo: str,
@@ -397,7 +397,7 @@ async def add_interaction(
 
 
 async def get_interactions(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     limit: int = 20,
@@ -418,7 +418,7 @@ async def get_interactions(
 
 
 async def get_seller_workbench(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     interaction_limit: int = 20,
@@ -505,7 +505,7 @@ async def get_seller_workbench(
 
 
 async def build_seller_dossier_export(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
 ) -> Optional[Dict[str, Any]]:
@@ -588,7 +588,7 @@ def _extract_whatsapp(seller: Dict[str, Any]) -> Optional[str]:
 
 
 async def build_supervised_send_payload(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     channel: str,
@@ -718,7 +718,7 @@ async def build_supervised_send_payload(
 
 
 async def confirm_supervised_send(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     seller_id: str,
     interaction_id: str,
@@ -771,7 +771,7 @@ async def confirm_supervised_send(
 
 
 async def intake_seller_raw(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     raw_data: dict,
 ) -> dict:
@@ -814,7 +814,7 @@ async def intake_seller_raw(
 
 
 async def batch_prioritize_sellers(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     batch_size: int = 10,
 ) -> list[dict]:
@@ -868,7 +868,7 @@ async def batch_prioritize_sellers(
 
 
 async def list_pending_approval(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     priority_tier: Optional[int] = None,
     limit: int = 20,
@@ -932,7 +932,7 @@ async def list_pending_approval(
 
 
 async def approve_and_send_outreach(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     draft_id: str,
     approved_email_body: Optional[str] = None,
@@ -976,10 +976,10 @@ async def approve_and_send_outreach(
 
     db.client.table("seller_outreach_drafts").update(update_payload).eq("id", str(draft_id)).execute()
 
-    # Log approval in audit_log via supabase_service
+    # Log approval in audit_log via neon_service
     try:
-        from backend.services.supabase_service import supabase_service
-        await supabase_service.insert_audit_log({
+        from backend.services.neon_service import neon_service
+        await neon_service.insert_audit_log({
             "org_id": org_id,
             "actor_type": "human",
             "actor_id": user_id or "unknown",

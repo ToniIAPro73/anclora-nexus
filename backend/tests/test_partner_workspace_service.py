@@ -61,7 +61,7 @@ class _MockClient:
 def test_ensure_workspace_for_accepted_admission(monkeypatch) -> None:
     service = PartnerWorkspaceService()
     store = {"partner_admissions": [], "synergi_partner_activity": []}
-    monkeypatch.setattr("backend.services.partner_workspace_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_workspace_service.neon_service.client", _MockClient(store))
     monkeypatch.setattr("backend.services.partner_workspace_service.secrets.token_urlsafe", lambda _n: "token-123")
     monkeypatch.setattr("backend.services.partner_workspace_service.settings.APP_BASE_URL", "https://anclora.example")
 
@@ -128,7 +128,7 @@ def test_get_workspace_by_token_returns_opportunities(monkeypatch) -> None:
         "synergi_partner_activity": [],
         "synergi_partner_shared_opportunities": [],
     }
-    monkeypatch.setattr("backend.services.partner_workspace_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_workspace_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(service.get_workspace_by_token("token-123"))
 
@@ -153,7 +153,7 @@ def test_create_opportunity_from_token(monkeypatch) -> None:
         "synergi_partner_activity": [],
         "synergi_partner_shared_opportunities": [],
         }
-    monkeypatch.setattr("backend.services.partner_workspace_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_workspace_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(
         service.create_opportunity_from_token(
@@ -187,7 +187,7 @@ def test_update_profile_from_token(monkeypatch) -> None:
         "synergi_partner_activity": [],
         "synergi_partner_shared_opportunities": [],
     }
-    monkeypatch.setattr("backend.services.partner_workspace_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_workspace_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(
         service.update_profile_from_token(
@@ -229,7 +229,7 @@ def test_update_shared_opportunity_status(monkeypatch) -> None:
         ],
         "synergi_partner_activity": [],
     }
-    monkeypatch.setattr("backend.services.partner_workspace_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_workspace_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(
         service.update_shared_opportunity_status_from_token(

@@ -13,12 +13,12 @@ from backend.models.deal_margin import (
     SimulationResult,
 )
 from backend.models.membership import UserRole
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class DealMarginService:
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     async def _get_role(self, org_id: str, user_id: str) -> str:
         try:
@@ -87,7 +87,7 @@ class DealMarginService:
         result = self._simulate(payload.assumptions, scenario_name)
 
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "deal_margin_simulation",
@@ -115,7 +115,7 @@ class DealMarginService:
         best = max(results, key=lambda r: r.expected_margin_eur)
 
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "deal_margin_simulation",

@@ -95,7 +95,7 @@ class TestScoreAuditability:
 class TestDBConstraintsSpec:
     """Validates migration specs are correct."""
 
-    MIGRATIONS_DIR = PROJECT_ROOT / "supabase" / "migrations"
+    MIGRATIONS_DIR = PROJECT_ROOT / "neon" / "migrations" / "archive" / "historical-migrations"
 
     def test_score_check_constraints_defined(self) -> None:
         import re

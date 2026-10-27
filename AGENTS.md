@@ -100,12 +100,12 @@ memanto memory sync --project-dir .
 | Styling | Tailwind CSS | 4 |
 | Components | Radix UI + shadcn/ui | Latest |
 | State | Zustand | 5.0.11 |
-| Auth | Supabase Auth Helpers | 0.15.0 |
+| Auth | Anclora Identity (OIDC) | 0.15.0 |
 | Backend | FastAPI + Uvicorn | Latest |
 | Language | Python | 3.11+ |
 | Agents | LangGraph | 0.3+ |
 | LLM | Groq + Cloudflare Workers AI | Runtime profile |
-| Database | Supabase PostgreSQL | Cloud |
+| Database | Neon PostgreSQL Data API | Cloud |
 | Typing | Pydantic v2 | Latest |
 
 ---
@@ -116,7 +116,7 @@ memanto memory sync --project-dir .
 
 - **NUNCA** concatenar strings para construir queries SQL — usar queries parametrizadas siempre
 - **NUNCA** incluir API keys, passwords o tokens en código fuente — solo en `.env` (nunca en git)
-- `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `CLOUDFLARE_API_TOKEN` e `INTERNAL_AUDIT_SECRET` solo en el backend (server-side)
+- `NEON_JWT_PRIVATE_KEY`, `GROQ_API_KEY`, `CLOUDFLARE_API_TOKEN` e `INTERNAL_AUDIT_SECRET` solo en el backend (server-side)
 - Prefijo `NEXT_PUBLIC_` solo para variables seguras de exponer en el cliente
 - Sanitizar todo input de usuario antes de pasarlo a LLMs (prevención de prompt injection)
 
@@ -124,7 +124,7 @@ memanto memory sync --project-dir .
 
 - **NUNCA** hacer UPDATE o DELETE sobre `audit_log` — es append-only e inmutable
 - Todo acceso a datos debe filtrar por `org_id` (principio de aislamiento single-tenant)
-- Nuevas tablas requieren migración SQL en `supabase/migrations/` con número secuencial
+- Nuevas tablas requieren migración SQL en `neon/migrations/` con número secuencial
 - Formato de archivo: `NNN_descripcion_snake_case.sql` (ej: `036_nueva_tabla.sql`)
 - Las políticas RLS son obligatorias en todas las tablas con datos de usuario
 
@@ -144,7 +144,7 @@ memanto memory sync --project-dir .
 - Iconos: Lucide React exclusivamente
 - Fuentes: Inter (body) + Playfair Display (headings de lujo)
 - Animaciones: Framer Motion (ya instalado)
-- Todos los datos de Supabase via `@supabase/auth-helpers-nextjs`
+- Los datos se consultan mediante Neon Data API; las sesiones se emiten mediante Anclora Identity.
 
 ### Agentes IA
 
@@ -166,14 +166,14 @@ anclora-nexus/
 │   │   ├── routes/     ← Un archivo por feature/router
 │   │   └── deps.py     ← get_current_user(), get_org_id()
 │   ├── models/         ← Pydantic schemas de request/response
-│   ├── services/       ← Lógica de negocio (llama a Supabase)
+│   ├── services/       ← Lógica de negocio (llama al servicio Neon)
 │   └── skills/         ← Implementaciones Python de skills
 ├── frontend/
 │   └── src/
 │       ├── app/        ← Next.js App Router pages
 │       ├── components/ ← Componentes React reutilizables
-│       └── lib/        ← Supabase client, stores Zustand
-├── supabase/
+│       └── lib/        ← Neon Data API client, stores Zustand
+├── neon/
 │   └── migrations/     ← SQL migrations numeradas secuencialmente
 ├── .agent/
 │   ├── rules/          ← Reglas por feature (NO editar sin revisar)
@@ -244,7 +244,7 @@ En v0 **NO implementar**:
 - Multitenancy (org_id es fijo, single-tenant)
 - Stripe o procesamiento de pagos
 - MCP Docker sandbox (skills son módulos Python internos)
-- MFA/WebAuthn (Supabase magic link es suficiente)
+- MFA/WebAuthn (Anclora Identity OIDC es suficiente)
 - Kill Switch multinivel (cancel simple desde UI)
 - pgvector embeddings (diferido a v1)
 - Lane Queue System (single-user, no hay concurrencia)
@@ -260,8 +260,7 @@ cd frontend && npm run dev
 # Backend
 cd backend && python -m uvicorn api.main:app --reload --port 8000
 
-# Supabase local
-supabase start
+# Neon Data API: usar el endpoint y la clave JWT configurados en el entorno
 
 # Tests Backend
 cd backend && pytest

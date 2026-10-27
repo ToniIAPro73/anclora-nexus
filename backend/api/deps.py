@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from backend.config import settings
 from backend.api.middleware import verify_org_membership
 from backend.models.membership import UserRole
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 def _decode_b64url(value: str) -> bytes:
@@ -61,8 +61,7 @@ def verify_nexus_access_token(token: str):
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """
-    Accept the Nexus short-lived ES256 token and the legacy Supabase token
-    during the staged Identity migration.
+    Accept only a Nexus short-lived ES256 access token issued after Identity OIDC.
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -80,13 +79,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if nexus_user:
         return nexus_user
 
-    try:
-        user_response = supabase_service.client.auth.get_user(token)
-        if not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        return user_response.user
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Auth error: {str(e)}")
+    raise HTTPException(status_code=401, detail="Invalid Anclora Identity access token")
 
 async def get_org_id(user = Depends(get_current_user)):
     """
@@ -95,7 +88,7 @@ async def get_org_id(user = Depends(get_current_user)):
     """
     try:
         response = (
-            supabase_service.client.table("user_profiles")
+            neon_service.client.table("user_profiles")
             .select("org_id")
             .eq("id", user.id)
             .single()
@@ -141,11 +134,11 @@ async def check_budget_hard_stop(org_id: str = Depends(get_org_id)):
     Dependency that blocks the request if the organization has reached hard-stop threshold.
     """
     from backend.services.finops import finops_service
-    
+
     status = await finops_service.get_budget_status(org_id)
     if status.status == "hard_stop":
         raise HTTPException(
-            status_code=402, 
+            status_code=402,
             detail="Monthly budget exceeded. Critical operations only (402 Payment Required)."
         )
     return status

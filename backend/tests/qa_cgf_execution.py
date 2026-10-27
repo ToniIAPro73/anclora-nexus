@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.api.deps import get_current_user, get_org_id
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 # To be replaced with real ID from DB query
 ORG_ID = "00000000-0000-0000-0000-000000000000"

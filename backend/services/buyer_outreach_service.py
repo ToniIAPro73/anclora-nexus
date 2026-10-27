@@ -8,7 +8,7 @@ from urllib.parse import quote
 from backend.services.buyer_memory_service import buyer_memory_service
 from backend.services.email_delivery_service import get_email_transport_summary, send_email_native
 from backend.services.llm_service import llm_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 
 def _safe_str(value: Any) -> str:
@@ -77,7 +77,7 @@ def _property_display_name(row: Dict[str, Any]) -> str:
 
 async def add_interaction(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
     tipo: str,
@@ -101,7 +101,7 @@ async def add_interaction(
 
 async def get_interactions(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
     limit: int = 20,
@@ -118,7 +118,7 @@ async def get_interactions(
     return result.data or []
 
 
-async def _get_buyer(db: SupabaseService, org_id: str, buyer_id: str) -> Optional[Dict[str, Any]]:
+async def _get_buyer(db: NeonService, org_id: str, buyer_id: str) -> Optional[Dict[str, Any]]:
     result = (
         db.client.table("buyer_profiles")
         .select("*")
@@ -132,7 +132,7 @@ async def _get_buyer(db: SupabaseService, org_id: str, buyer_id: str) -> Optiona
     return result.data or None
 
 
-async def _get_matches(db: SupabaseService, org_id: str, buyer_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+async def _get_matches(db: NeonService, org_id: str, buyer_id: str, limit: int = 5) -> List[Dict[str, Any]]:
     matches = (
         db.client.table("property_buyer_matches")
         .select("*")
@@ -178,7 +178,7 @@ async def _get_matches(db: SupabaseService, org_id: str, buyer_id: str, limit: i
     return matches
 
 
-async def _get_match_activities(db: SupabaseService, org_id: str, match_ids: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+async def _get_match_activities(db: NeonService, org_id: str, match_ids: List[str], limit: int = 10) -> List[Dict[str, Any]]:
     if not match_ids:
         return []
     rows = (
@@ -300,7 +300,7 @@ def _fallback_whatsapp_body(buyer: Dict[str, Any], matches: List[Dict[str, Any]]
 
 async def generate_buyer_outreach(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
 ) -> Dict[str, Any]:
@@ -391,7 +391,7 @@ async def generate_buyer_outreach(
 
 async def get_buyer_workbench(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
     interaction_limit: int = 20,
@@ -458,7 +458,7 @@ async def get_buyer_workbench(
 
 async def build_supervised_send_payload(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
     channel: str,
@@ -558,7 +558,7 @@ async def build_supervised_send_payload(
 
 async def confirm_supervised_send(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     buyer_id: str,
     interaction_id: str,

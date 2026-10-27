@@ -1,6 +1,6 @@
 """
 Anclora Intelligence v1 — Database Service
-Manages connection to Supabase PostgreSQL and audit log operations
+Manages connection to Neon PostgreSQL and audit log operations
 """
 
 import hashlib

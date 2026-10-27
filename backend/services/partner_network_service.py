@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.models.partner_network import PartnerNetworkUpdate, PartnerSharedOpportunityCreate
 from backend.services.partner_workspace_service import partner_workspace_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class PartnerNetworkService:
@@ -63,7 +63,7 @@ class PartnerNetworkService:
     def _safe_table_rows(self, table: str, org_id: str, columns: str = "*") -> list[dict[str, Any]]:
         try:
             return (
-                supabase_service.client.table(table)
+                neon_service.client.table(table)
                 .select(columns)
                 .eq("org_id", org_id)
                 .execute()
@@ -240,7 +240,7 @@ class PartnerNetworkService:
 
     async def update_network_partner(self, org_id: str, workspace_id: str, payload: PartnerNetworkUpdate) -> Optional[Dict[str, Any]]:
         current = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("org_id", org_id)
             .eq("id", workspace_id)
@@ -268,7 +268,7 @@ class PartnerNetworkService:
         if not update_payload:
             return row
         updated = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .update(update_payload)
             .eq("org_id", org_id)
             .eq("id", workspace_id)
@@ -285,7 +285,7 @@ class PartnerNetworkService:
         payload: PartnerSharedOpportunityCreate,
     ) -> Optional[Dict[str, Any]]:
         workspace = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("org_id", org_id)
             .eq("id", workspace_id)
@@ -310,7 +310,7 @@ class PartnerNetworkService:
             "created_at": partner_workspace_service._now(),
             "updated_at": partner_workspace_service._now(),
         }
-        created = supabase_service.client.table("synergi_partner_shared_opportunities").insert(record).execute()
+        created = neon_service.client.table("synergi_partner_shared_opportunities").insert(record).execute()
         item = created.data[0] if created.data else None
         if item:
             partner_workspace_service._append_activity(

@@ -54,7 +54,7 @@ async def test_result_handler_origin_mapping():
         "org_id": "org-uuid"
     }
     
-    with patch("backend.services.supabase_service.supabase_service", mock_db):
+    with patch("backend.services.neon_service.neon_service", mock_db):
         await result_handler_node(state)
         
         # Verify insert_lead call
@@ -94,7 +94,7 @@ async def test_result_handler_direct_origin():
         }
     }
     
-    with patch("backend.services.supabase_service.supabase_service", mock_db):
+    with patch("backend.services.neon_service.neon_service", mock_db):
         await result_handler_node(state)
         
         args, kwargs = mock_db.insert_lead.call_args

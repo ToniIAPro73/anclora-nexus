@@ -10,14 +10,14 @@ from typing import Any, Dict, List
 
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.skills.whale_dossier import run_whale_dossier
 
 
 async def run_seller_outreach_batch(
     data: Dict[str, Any],
     llm: LLMService,
-    db: SupabaseService,
+    db: NeonService,
 ) -> Dict[str, Any]:
     org_id = resolve_legacy_org_id(data.get("org_id"), "seller_outreach_batch")
     prioridad_min = int(data.get("prioridad_min", 4))

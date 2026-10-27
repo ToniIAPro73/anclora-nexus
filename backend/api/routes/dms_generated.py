@@ -13,7 +13,7 @@ from backend.services.document_generation_service import (
     fetch_template_required_fields,
     generate_from_template,
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.blob_storage import put_private_blob
 
 router = APIRouter()
@@ -27,7 +27,7 @@ async def require_dms_membership(
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 def _fetch_generated(org_id: str, generated_id: str):

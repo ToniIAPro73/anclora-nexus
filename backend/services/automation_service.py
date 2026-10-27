@@ -25,7 +25,7 @@ from backend.models.source_observatory import SourceScorecard
 from backend.services.cloud_ops_service import get_cloud_ops_checks
 from backend.services.finops import finops_service
 from backend.services.source_observatory_service import source_observatory_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.territorial_sync_service import (
     get_territorial_pipeline_status,
     get_territorial_sync_status,
@@ -34,7 +34,7 @@ from backend.services.territorial_sync_service import (
 
 class AutomationService:
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -123,7 +123,7 @@ class AutomationService:
         result = self.client.table("automation_rules").insert(data).execute()
         created = result.data[0]
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "automation_rule",
@@ -158,7 +158,7 @@ class AutomationService:
         )
         updated = result.data[0]
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "automation_rule",
@@ -289,7 +289,7 @@ class AutomationService:
             ).execute()
 
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "automation_execution",
@@ -615,7 +615,7 @@ class AutomationService:
         if not result.data:
             return False
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "entity_type": "automation_alert",

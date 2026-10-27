@@ -7,7 +7,7 @@ For any transaction record classified as AML-relevant, storing it in the AML vau
 shall produce a record whose `retention_expires_at` equals `created_at + 10 years` exactly.
 
 This test validates the pure logic of the `set_retention_expiry` trigger function
-defined in supabase/migrations/071_aml_vault_schema.sql:
+defined in neon/migrations/071_aml_vault_schema.sql:
 
     NEW.retention_expires_at := NEW.created_at + interval '10 years';
 

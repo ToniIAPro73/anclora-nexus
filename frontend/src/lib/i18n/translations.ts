@@ -943,7 +943,7 @@ export const translations = {
     managePermissions: "Gestionar Permisos",
     secureAccess: "Acceso Seguro",
     securityManagedBy:
-      "La gestión de sesiones se realiza a través de Supabase.",
+      "La gestión de sesiones se realiza a través de Anclora Identity.",
     viewLogs: "Ver Registros de Acceso",
     fullName: "Nombre Completo",
     jobTitle: "Título Profesional",
@@ -1072,7 +1072,7 @@ export const translations = {
     searchSellerMemory: "Buscar memoria",
     sellerMemoryEmpty: "No hay memoria reutilizable para este seller todavía.",
     sellerMemoryMigrationMissing:
-      "La memoria semántica requiere aplicar las migraciones 043 y 044 en Supabase.",
+      "La memoria semántica requiere aplicar las migraciones 043 y 044 en Neon.",
     workbenchConsole: "Consola comercial",
     recommendedChannel: "Canal recomendado",
     nextStep: "Siguiente paso",
@@ -1863,7 +1863,7 @@ export const translations = {
     searchSellerMemory: "Search memory",
     sellerMemoryEmpty: "No reusable memory found for this seller yet.",
     sellerMemoryMigrationMissing:
-      "Semantic memory requires migrations 043 and 044 to be applied in Supabase.",
+      "Semantic memory requires migrations 043 and 044 to be applied in Neon.",
     workbenchConsole: "Commercial console",
     recommendedChannel: "Recommended channel",
     nextStep: "Next step",
@@ -3334,7 +3334,7 @@ export const translations = {
     sellerMemoryEmpty:
       "Noch kein wiederverwendbarer Speicher für diesen Seller.",
     sellerMemoryMigrationMissing:
-      "Semantischer Speicher erfordert die Migrationen 043 und 044 in Supabase.",
+      "Semantischer Speicher erfordert die Migrationen 043 und 044 in Neon.",
     workbenchConsole: "Commercial Console",
     recommendedChannel: "Empfohlener Kanal",
     nextStep: "Nächster Schritt",
@@ -5563,7 +5563,7 @@ export const translations = {
     managePermissions: "Gestionar Permisos",
     secureAccess: "Accés Segur",
     securityManagedBy:
-      "La gestió de sessions es realitza a través de Supabase.",
+      "La gestió de sessions es realitza a través d'Anclora Identity.",
     viewLogs: "Veure Registres d'Accés",
     fullName: "Nom Complet",
     jobTitle: "Títol Professional",
@@ -5691,7 +5691,7 @@ export const translations = {
     sellerMemoryEmpty:
       "No hi ha memòria reutilitzable per a aquest venedor encara.",
     sellerMemoryMigrationMissing:
-      "La memòria semàntica requereix aplicar les migracions 043 i 044 a Supabase.",
+      "La memòria semàntica requereix aplicar les migracions 043 i 044 a Neon.",
     workbenchConsole: "Consola comercial",
     recommendedChannel: "Canal recomanat",
     nextStep: "Següent pas",

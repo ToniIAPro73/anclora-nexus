@@ -1,8 +1,8 @@
-import supabase from './supabase'
+import database from './neon-data-client'
 import { buildBackendUrl } from './backend-url'
 
 export async function getAuthHeaders(extraHeaders: Record<string, string> = {}): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   return {
     Authorization: `Bearer ${session?.access_token || ''}`,
     ...extraHeaders,

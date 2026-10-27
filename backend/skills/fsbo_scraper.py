@@ -31,7 +31,7 @@ from backend.services.firecrawl_service import (
 )
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 FSBO_CONNECTOR = "firecrawl:idealista-fsbo"
 
 # Priority zones — scrape these by default if no zones specified
@@ -49,7 +49,7 @@ DEFAULT_ZONES = [
 async def run_fsbo_scraper(
     data: Dict[str, Any],
     llm: LLMService | None,
-    db: SupabaseService | None,
+    db: NeonService | None,
 ) -> Dict[str, Any]:
     """
     Scrape Idealista FSBO listings by zone and ingest them into nexus_sellers.

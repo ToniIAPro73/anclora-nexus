@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from backend.api.deps import get_current_user, get_org_id
 from backend.api.middleware import verify_org_membership
 from backend.services.document_encryption_service import DocumentEncryptionService
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.blob_storage import get_private_blob, put_private_blob
 
 router = APIRouter()
@@ -30,7 +30,7 @@ async def require_dms_membership(
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 def _fetch_generated_doc(org_id: str, generated_id: str) -> dict[str, Any] | None:

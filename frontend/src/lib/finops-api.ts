@@ -5,7 +5,7 @@
  * Wraps /api/finops endpoints.
  */
 
-import supabase from './supabase'
+import database from './neon-data-client'
 import { buildBackendUrl } from './backend-url'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export interface UsageFilterParams {
 // ─── API Methods ─────────────────────────────────────────────────────────────
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${session?.access_token || ''}`,
@@ -97,7 +97,7 @@ export async function getUsage(params?: UsageFilterParams): Promise<{ items: Usa
     if (params?.to) query.set('to', params.to)
     if (params?.limit) query.set('limit', String(params.limit))
     if (params?.offset) query.set('offset', String(params.offset))
-    
+
     const qs = query.toString()
     return apiRequest(`/api/finops/usage${qs ? `?${qs}` : ''}`)
 }

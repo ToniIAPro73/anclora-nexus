@@ -7,8 +7,8 @@ Covers:
   C. Automatic decision matrix (_decide_status)
   D. Webhook security for /api/internal/syncxml-pilot
 
-All Supabase, Resend, Hermes and SyncXML calls are mocked.
-ALLOW_REAL_SUPABASE_WRITE is never set to true.
+All Neon, Resend, Hermes and SyncXML calls are mocked.
+ALLOW_REAL_NEON_WRITE is never set to true.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -131,7 +131,7 @@ async def test_approve_blocked_real_write_returns_503(pilot_app):
     mock_result = {
         "ok": False,
         "blocked": True,
-        "reason": "REAL_SUPABASE_WRITE_BLOCKED",
+        "reason": "REAL_NEON_WRITE_BLOCKED",
         "action": "approve_manual",
     }
 
@@ -142,7 +142,7 @@ async def test_approve_blocked_real_write_returns_503(pilot_app):
             response = await client.post("/api/syncxml-pilot/req-001/approve", json={})
 
     assert response.status_code == 503
-    assert response.json()["detail"] == "REAL_SUPABASE_WRITE_BLOCKED"
+    assert response.json()["detail"] == "REAL_NEON_WRITE_BLOCKED"
 
 
 @pytest.mark.anyio
@@ -276,7 +276,7 @@ def test_decide_keeps_request_pending_when_applicant_has_no_synthetic_sample():
         mock_settings.GUESTHUB_PILOT_AUTO_APPROVE = False
         mock_settings.APP_ENV = "production"
         mock_settings.GUESTHUB_ENV = "production"
-        mock_settings.ALLOW_REAL_SUPABASE_WRITE = True
+        mock_settings.ALLOW_REAL_NEON_WRITE = True
         mock_settings.USE_SYNTHETIC_DATA_ONLY = False
         result = syncxml_pilot_service._decide_status(payload, ai)
     assert result == "pending"
@@ -293,7 +293,7 @@ def test_decide_pending_when_auto_approve_false():
         mock_settings.GUESTHUB_PILOT_AUTO_APPROVE = False
         mock_settings.APP_ENV = "production"
         mock_settings.GUESTHUB_ENV = "production"
-        mock_settings.ALLOW_REAL_SUPABASE_WRITE = True
+        mock_settings.ALLOW_REAL_NEON_WRITE = True
         mock_settings.USE_SYNTHETIC_DATA_ONLY = False
         result = syncxml_pilot_service._decide_status(payload, ai)
     assert result == "pending"
@@ -310,7 +310,7 @@ def test_decide_approved_only_when_auto_approve_true_and_not_safety_mode():
         mock_settings.GUESTHUB_PILOT_AUTO_APPROVE = True
         mock_settings.APP_ENV = "production"
         mock_settings.GUESTHUB_ENV = "production"
-        mock_settings.ALLOW_REAL_SUPABASE_WRITE = True
+        mock_settings.ALLOW_REAL_NEON_WRITE = True
         mock_settings.USE_SYNTHETIC_DATA_ONLY = False
         result = syncxml_pilot_service._decide_status(payload, ai)
     assert result == "approved"
@@ -324,7 +324,7 @@ def test_decide_pending_when_auto_approve_true_but_safety_mode():
         mock_settings.GUESTHUB_PILOT_AUTO_APPROVE = True
         mock_settings.APP_ENV = "staging"
         mock_settings.GUESTHUB_ENV = "staging"
-        mock_settings.ALLOW_REAL_SUPABASE_WRITE = False
+        mock_settings.ALLOW_REAL_NEON_WRITE = False
         mock_settings.USE_SYNTHETIC_DATA_ONLY = True
         result = syncxml_pilot_service._decide_status(payload, ai)
     assert result == "pending"
@@ -414,7 +414,7 @@ async def test_webhook_invalid_payload_returns_traceable_422(webhook_app):
 
 @pytest.mark.anyio
 async def test_webhook_valid_key_accepts_payload(webhook_app):
-    """Valid API key + valid payload → accepted (200), no real Supabase write."""
+    """Valid API key + valid payload → accepted (200), no real Neon write."""
     valid_payload = {
         "name": "Test User",
         "email": "test@example.com",
@@ -454,7 +454,7 @@ async def test_webhook_blocked_result_returns_503(webhook_app):
         mock_service.process_incoming_lead = AsyncMock(
             return_value={
                 "blocked": True,
-                "reason": "REAL_SUPABASE_WRITE_BLOCKED",
+                "reason": "REAL_NEON_WRITE_BLOCKED",
                 "action": "process_incoming_lead",
             }
         )
@@ -480,7 +480,7 @@ async def test_webhook_blocked_result_returns_503(webhook_app):
             )
 
     assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "REAL_SUPABASE_WRITE_BLOCKED"
+    assert response.json()["detail"]["code"] == "REAL_NEON_WRITE_BLOCKED"
 
 
 @pytest.mark.anyio

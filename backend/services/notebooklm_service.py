@@ -1,12 +1,12 @@
 """
 NotebookLM Intelligence Cache Service
 
-Manages storage and retrieval of intelligence insights in Supabase.
+Manages storage and retrieval of intelligence insights in Neon.
 NotebookLM MCP is not directly callable from the production backend
 (it uses browser session cookies). Claude Code queries NotebookLM and
 writes the results here for the API to serve.
 
-Flow: Claude Code (MCP) → NotebookLM → Save here → API serves from Supabase
+Flow: Claude Code (MCP) → NotebookLM → Save here → API serves from Neon
 """
 
 import os
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from .supabase_service import SupabaseService
+from .neon_service import NeonService
 
 
 NOTEBOOK_ID = os.getenv("NOTEBOOKLM_NOTEBOOK_ID", "9f003773-16c5-4fb4-ab37-7b6c230ab4da")
@@ -36,7 +36,7 @@ VALID_ZONAS = {
 
 
 async def save_insight(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     query: str,
     response: str,
@@ -47,10 +47,10 @@ async def save_insight(
     notebook_name: str = NOTEBOOK_NAME,
 ) -> dict:
     """
-    Save a NotebookLM query result to Supabase for API consumption.
+    Save a NotebookLM query result to Neon for API consumption.
 
     Args:
-        db: SupabaseService instance
+        db: NeonService instance
         org_id: Organization UUID
         query: The question asked to NotebookLM
         response: The answer from NotebookLM
@@ -91,7 +91,7 @@ async def save_insight(
 
 
 async def get_latest_insights(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     insight_type: Optional[str] = None,
     zona: Optional[str] = None,
@@ -99,10 +99,10 @@ async def get_latest_insights(
     limit: int = 10,
 ) -> list[dict]:
     """
-    Retrieve the most recent intelligence insights from Supabase.
+    Retrieve the most recent intelligence insights from Neon.
 
     Args:
-        db: SupabaseService instance
+        db: NeonService instance
         org_id: Organization UUID
         insight_type: Filter by type (optional)
         zona: Filter by geographic zone (optional)
@@ -133,7 +133,7 @@ async def get_latest_insights(
 
 
 async def get_territorial_summary(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     notebook_id: Optional[str] = None,
 ) -> dict:
@@ -165,7 +165,7 @@ async def get_territorial_summary(
 
 
 async def get_vulnerabilidades(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     notebook_id: Optional[str] = None,
 ) -> Optional[dict]:

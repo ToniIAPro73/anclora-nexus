@@ -1,5 +1,5 @@
 """
-Integration tests for ProspectionService — mocked Supabase.
+Integration tests for ProspectionService — mocked Neon.
 Feature: ANCLORA-PBM-001
 
 Tests:
@@ -31,52 +31,52 @@ ORG_A = str(uuid4())
 ORG_B = str(uuid4())
 
 
-class MockSupabaseQuery:
-    """Builder pattern mock for Supabase query chain."""
+class MockNeonQuery:
+    """Builder pattern mock for Neon query chain."""
 
     def __init__(self, data: list, count: int | None = None):
         self._data = data
         self._count = count
 
-    def table(self, name: str) -> "MockSupabaseQuery":
+    def table(self, name: str) -> "MockNeonQuery":
         return self
 
-    def select(self, *args, **kwargs) -> "MockSupabaseQuery":
+    def select(self, *args, **kwargs) -> "MockNeonQuery":
         return self
 
-    def insert(self, record: dict) -> "MockSupabaseQuery":
+    def insert(self, record: dict) -> "MockNeonQuery":
         # Simulate setting id and timestamp
         record.setdefault("id", str(uuid4()))
         self._data = [record]
         return self
 
-    def update(self, data: dict) -> "MockSupabaseQuery":
+    def update(self, data: dict) -> "MockNeonQuery":
         if self._data:
             self._data[0].update(data)
         return self
 
-    def eq(self, field: str, value) -> "MockSupabaseQuery":
+    def eq(self, field: str, value) -> "MockNeonQuery":
         return self
 
-    def neq(self, field: str, value) -> "MockSupabaseQuery":
+    def neq(self, field: str, value) -> "MockNeonQuery":
         return self
 
-    def gte(self, field: str, value) -> "MockSupabaseQuery":
+    def gte(self, field: str, value) -> "MockNeonQuery":
         return self
 
-    def lte(self, field: str, value) -> "MockSupabaseQuery":
+    def lte(self, field: str, value) -> "MockNeonQuery":
         return self
 
-    def in_(self, field: str, values: list) -> "MockSupabaseQuery":
+    def in_(self, field: str, values: list) -> "MockNeonQuery":
         return self
 
-    def order(self, field: str, desc: bool = False) -> "MockSupabaseQuery":
+    def order(self, field: str, desc: bool = False) -> "MockNeonQuery":
         return self
 
-    def range(self, start: int, end: int) -> "MockSupabaseQuery":
+    def range(self, start: int, end: int) -> "MockNeonQuery":
         return self
 
-    def single(self) -> "MockSupabaseQuery":
+    def single(self) -> "MockNeonQuery":
         return self
 
     def execute(self) -> MagicMock:
@@ -128,9 +128,9 @@ class TestPropertyCRUD:
             "status": "new",
         }
 
-        mock_query = MockSupabaseQuery([record_with_score])
+        mock_query = MockNeonQuery([record_with_score])
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table.return_value = mock_query
             result = await service.create_property(ORG_A, prop_data)
 
@@ -143,9 +143,9 @@ class TestPropertyCRUD:
         mock_props = [
             {"id": str(uuid4()), "org_id": ORG_A, "title": "Villa A", "high_ticket_score": 80},
         ]
-        mock_query = MockSupabaseQuery(mock_props, count=1)
+        mock_query = MockNeonQuery(mock_props, count=1)
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table.return_value = mock_query
             result = await service.list_properties(ORG_A)
 
@@ -157,9 +157,9 @@ class TestPropertyCRUD:
     @pytest.mark.asyncio
     async def test_get_property_not_found_returns_none(self, service: ProspectionService) -> None:
         """Property not found returns None instead of error."""
-        mock_query = MockSupabaseQuery([])
+        mock_query = MockNeonQuery([])
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table.return_value = mock_query
             result = await service.get_property(ORG_A, str(uuid4()))
 
@@ -198,9 +198,9 @@ class TestBuyerCRUD:
             "budget_max": 4000000.0,
             "status": "active",
         }
-        mock_query = MockSupabaseQuery([record])
+        mock_query = MockNeonQuery([record])
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table.return_value = mock_query
             result = await service.create_buyer(ORG_A, buyer_data)
 
@@ -274,7 +274,7 @@ class TestMatchOperations:
                 return MockTableChain([])  # No existing matches
             return MockTableChain()
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table = mock_table
             result = await service.recompute_matches(ORG_A)
 
@@ -315,12 +315,12 @@ class TestActivityLogging:
 
         def mock_table(name: str):
             if name == "property_buyer_matches":
-                return MockSupabaseQuery([{"id": match_id}])
+                return MockNeonQuery([{"id": match_id}])
             elif name == "match_activity_log":
-                return MockSupabaseQuery([record])
-            return MockSupabaseQuery([])
+                return MockNeonQuery([record])
+            return MockNeonQuery([])
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table = mock_table
             result = await service.log_activity(ORG_A, match_id, activity_data)
 
@@ -333,9 +333,9 @@ class TestActivityLogging:
             activity_type=ActivityType.VIEWING,
         )
 
-        mock_query = MockSupabaseQuery([])
+        mock_query = MockNeonQuery([])
 
-        with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+        with patch("backend.services.prospection_service.neon_service") as mock_sb:
             mock_sb.client.table.return_value = mock_query
             with pytest.raises(ValueError, match="not found"):
                 await service.log_activity(ORG_A, str(uuid4()), activity_data)

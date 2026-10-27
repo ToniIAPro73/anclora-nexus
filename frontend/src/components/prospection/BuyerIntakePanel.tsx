@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Globe2, Network, RefreshCw, Users } from 'lucide-react'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 import { buildBackendUrl } from '@/lib/backend-url'
 import { createBuyer, type ProspectionWorkspaceResponse } from '@/lib/prospection-api'
 import { useI18n } from '@/lib/i18n'
@@ -50,7 +50,7 @@ export function BuyerIntakePanel({ sourceSummary, onCreated }: Props) {
     let cancelled = false
     const loadPacks = async () => {
       try {
-        const { data } = await supabase.auth.getSession()
+        const { data } = await database.auth.getSession()
         const res = await fetch(buildBackendUrl('/api/intelligence/packs'), {
           headers: {
             Authorization: `Bearer ${data.session?.access_token || ''}`,

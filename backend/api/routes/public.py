@@ -236,7 +236,7 @@ COMMERCIAL_LEAD_VALID_SOURCES = {
 
 async def _handle_commercial_lead_intake(body: Dict[str, Any], request: Request) -> Dict[str, Any]:
     """Shared logic for commercial lead intake endpoints."""
-    from backend.services.supabase_service import supabase_service
+    from backend.services.neon_service import neon_service
 
     # Validate intake_domain
     intake_domain = body.get("intake_domain")
@@ -352,14 +352,14 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any], request: Request)
         try:
             if routing_target_domain == "valuation_requests":
                 result = (
-                    supabase_service.client
+                    neon_service.client
                     .table("valuation_requests")
                     .insert(persistence_data)
                     .execute()
                 )
             else:
                 result = (
-                    supabase_service.client
+                    neon_service.client
                     .table("leads_pipeline")
                     .insert(persistence_data)
                     .execute()
@@ -368,7 +368,7 @@ async def _handle_commercial_lead_intake(body: Dict[str, Any], request: Request)
             lead_id = record.get("id") or str(uuid4())
         except Exception as e:
             if "PGRST205" in str(e) or "schema cache" in str(e):
-                logger.warning(f"Commercial table '{routing_target_domain}' not found in Supabase schema cache: {e}. Simulating intake acceptance.")
+                logger.warning(f"Commercial table '{routing_target_domain}' not found in Neon schema cache: {e}. Simulating intake acceptance.")
                 lead_id = str(uuid4())
             else:
                 raise

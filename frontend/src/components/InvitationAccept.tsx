@@ -12,7 +12,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 
 interface InvitationAcceptProps {
   code: string
@@ -59,14 +59,14 @@ export function InvitationAccept({ code }: InvitationAcceptProps) {
     setAccepting(true)
     setError(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await database.auth.getUser()
       if (!user) {
         // Redirect to login if not authenticated, keeping the invite code
         router.push(`/login?invite=${code}`)
         return
       }
 
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       const token = session?.access_token
 
       const response = await fetch(`/api/invitations/${code}/accept`, {

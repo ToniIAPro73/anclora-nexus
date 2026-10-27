@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class AccessRequestAuditService:
@@ -20,7 +20,7 @@ class AccessRequestAuditService:
         if not normalized_event_type:
             raise ValueError("event_type is required")
 
-        return await supabase_service.insert_audit_log(
+        return await neon_service.insert_audit_log(
             {
                 "org_id": org_id,
                 "actor_type": actor_type,

@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.models.dq import (
     DQQualityIssue, DQEntityCandidate, DQResolutionLog,
     EntityType, IssueType, Severity, IssueStatus, 
@@ -144,7 +144,7 @@ class DQService:
         return issues
 
     async def get_issues(self, org_id: str, entity_type: Optional[EntityType] = None, status: IssueStatus = IssueStatus.OPEN, limit: int = 50, offset: int = 0) -> DQIssuesResponse:
-        query = supabase_service.client.table("dq_quality_issues").select("*", count="exact").eq("org_id", org_id).eq("status", status.value)
+        query = neon_service.client.table("dq_quality_issues").select("*", count="exact").eq("org_id", org_id).eq("status", status.value)
         if entity_type:
             query = query.eq("entity_type", entity_type.value)
         
@@ -156,8 +156,8 @@ class DQService:
         )
 
     async def get_metrics(self, org_id: str) -> DQMetricsResponse:
-        issues_resp = supabase_service.client.table("dq_quality_issues").select("id, severity, status").eq("org_id", org_id).execute()
-        candidates_resp = supabase_service.client.table("dq_entity_candidates").select("id, status").eq("org_id", org_id).execute()
+        issues_resp = neon_service.client.table("dq_quality_issues").select("id, severity, status").eq("org_id", org_id).execute()
+        candidates_resp = neon_service.client.table("dq_entity_candidates").select("id, status").eq("org_id", org_id).execute()
         
         issues = issues_resp.data or []
         candidates = candidates_resp.data or []
@@ -173,15 +173,15 @@ class DQService:
 
     async def recompute_all(self, org_id: str):
         # 1. Fetch all leads and properties
-        leads_resp = supabase_service.client.table("leads").select("*").eq("org_id", org_id).execute()
-        props_resp = supabase_service.client.table("properties").select("*").eq("org_id", org_id).execute()
+        leads_resp = neon_service.client.table("leads").select("*").eq("org_id", org_id).execute()
+        props_resp = neon_service.client.table("properties").select("*").eq("org_id", org_id).execute()
         
         leads = leads_resp.data or []
         props = props_resp.data or []
         
         # 2. Re-detect quality issues
         # Simple strategy: delete current OPEN issues and re-insert
-        supabase_service.client.table("dq_quality_issues").delete().eq("org_id", org_id).eq("status", "open").execute()
+        neon_service.client.table("dq_quality_issues").delete().eq("org_id", org_id).eq("status", "open").execute()
         
         new_issues = []
         for l in leads:
@@ -195,12 +195,12 @@ class DQService:
                 new_issues.append({**iss, "org_id": org_id, "entity_type": EntityType.PROPERTY.value, "entity_id": p["id"]})
         
         if new_issues:
-            # Batch insert (Supabase limit might apply, but for v0 it should be fine)
-             supabase_service.client.table("dq_quality_issues").insert(new_issues).execute()
+            # Batch insert (Neon limit might apply, but for v0 it should be fine)
+             neon_service.client.table("dq_quality_issues").insert(new_issues).execute()
         
         # 3. Find duplicate candidates
         # Fetch EXISTING candidates to avoid unique constraint violations
-        existing_candidates_resp = supabase_service.client.table("dq_entity_candidates").select("left_entity_id, right_entity_id").eq("org_id", org_id).execute()
+        existing_candidates_resp = neon_service.client.table("dq_entity_candidates").select("left_entity_id, right_entity_id").eq("org_id", org_id).execute()
         existing_pairs = set()
         if existing_candidates_resp.data:
             for c in existing_candidates_resp.data:
@@ -247,11 +247,11 @@ class DQService:
                     })
         
         if new_candidates:
-            supabase_service.client.table("dq_entity_candidates").insert(new_candidates).execute()
+            neon_service.client.table("dq_entity_candidates").insert(new_candidates).execute()
 
     async def resolve_candidate(self, org_id: str, candidate_id: UUID, action: ResolutionAction, actor_user_id: Optional[UUID] = None, details: Optional[Dict[str, Any]] = None):
         # 1. Fetch candidate
-        resp = supabase_service.client.table("dq_entity_candidates").select("*").eq("id", str(candidate_id)).eq("org_id", org_id).single().execute()
+        resp = neon_service.client.table("dq_entity_candidates").select("*").eq("id", str(candidate_id)).eq("org_id", org_id).single().execute()
         if not resp.data:
             raise ValueError("Candidate not found")
         
@@ -263,7 +263,7 @@ class DQService:
             new_status = CandidateStatus.AUTO_LINK
         
         # 3. Update candidate
-        supabase_service.client.table("dq_entity_candidates").update({"status": new_status.value}).eq("id", str(candidate_id)).execute()
+        neon_service.client.table("dq_entity_candidates").update({"status": new_status.value}).eq("id", str(candidate_id)).execute()
         
         # 4. Create resolution log
         log_entry = {
@@ -274,7 +274,7 @@ class DQService:
             "actor_user_id": str(actor_user_id) if actor_user_id else None,
             "details": details or {}
         }
-        supabase_service.client.table("dq_resolution_log").insert(log_entry).execute()
+        neon_service.client.table("dq_resolution_log").insert(log_entry).execute()
         
         # 5. TODO: Implement actual merge logic if approved
         # For v1, we just mark as approved. Actual merge might be a separate background task or manual.

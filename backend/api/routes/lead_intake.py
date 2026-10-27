@@ -20,7 +20,7 @@ from backend.models.lead_intake import (
     LeadIntakeRequest,
     LeadIntakeResponse,
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ async def check_duplicate_lead(
 
     try:
         response = (
-            supabase_service.client.table("leads_pipeline")
+            neon_service.client.table("leads_pipeline")
             .select("id, temperature")
             .eq("org_id", org_id)
             .eq("contact_email", contact_email)
@@ -156,7 +156,7 @@ async def intake_lead(
 
     try:
         response = (
-            supabase_service.client.table("leads_pipeline")
+            neon_service.client.table("leads_pipeline")
             .insert(lead_data)
             .execute()
         )

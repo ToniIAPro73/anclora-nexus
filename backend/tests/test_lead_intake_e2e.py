@@ -6,19 +6,19 @@ from uuid import uuid4
 from backend.agents.graph import agent_executor
 from backend.agents.state import AgentState
 
-# Live E2E: executes the real agent graph against a reachable Supabase
+# Live E2E: executes the real agent graph against a reachable Neon
 # instance (requires NEXUS_RUN_LIVE_E2E=1 and valid credentials in .env).
 @pytest.mark.skipif(
     os.environ.get("NEXUS_RUN_LIVE_E2E") != "1",
-    reason="live E2E requires reachable Supabase; set NEXUS_RUN_LIVE_E2E=1 to run",
+    reason="live E2E requires reachable Neon; set NEXUS_RUN_LIVE_E2E=1 to run",
 )
 @pytest.mark.asyncio
 async def test_lead_intake():
     print("🚀 Starting Lead Intake E2E Test...")
-    
+
     # Mock lead input
     test_input = {
-        "lead_id": str(uuid4()), # In real n8n flow, this would be an actual UUID from Supabase
+        "lead_id": str(uuid4()), # In real n8n flow, this would be an actual UUID from Neon
         "name": "Juan Palomo",
         "email": "juan.palomo@mallorca-luxury.com",
         "phone": "+34 600 000 000",
@@ -27,7 +27,7 @@ async def test_lead_intake():
         "urgency": "immediate",
         "source": "website_form"
     }
-    
+
     # Initial state
     initial_state: AgentState = {
         "input_data": test_input,
@@ -47,7 +47,7 @@ async def test_lead_intake():
     }
 
     print(f"📊 Sending input to agent: {json.dumps(test_input, indent=2)}")
-    
+
     # Execute graph
     async for output in agent_executor.astream(initial_state):
         for node_name, state_update in output.items():
@@ -58,7 +58,7 @@ async def test_lead_intake():
     print("\n🏁 State after execution:")
     # Note: agent_executor.astream returns updates, to get final state we'd usually use ainvoke or collect updates
     # But for a quick test, we check if it finished without unhandled exceptions
-    print("Verification complete. Check Supabase 'leads', 'tasks', 'audit_log', and 'agent_logs' for results.")
+    print("Verification complete. Check Neon 'leads', 'tasks', 'audit_log', and 'agent_logs' for results.")
 
 if __name__ == "__main__":
     try:

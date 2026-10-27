@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 from backend.services.llm_service import LLMService
-from backend.services.supabase_service import SupabaseService
+
 
 # --- Versioning ---
 __version__ = "1.0.0"
@@ -69,11 +69,11 @@ async def _call_llm_with_retry(func, *args, attempts: int = 3, **kwargs) -> Any:
     raise last_error
 
 # --- Core Skill ---
-async def run_prospection_weekly(data: Dict[str, Any], llm: LLMService, db: SupabaseService) -> Dict[str, Any]:
+async def run_prospection_weekly(data: Dict[str, Any], llm: LLMService, db: Any) -> Dict[str, Any]:
     """
     Skill for weekly property prospection and lead matching.
 
-    1. Fetches high-priority leads and available properties from Supabase.
+    1. Fetches high-priority leads and available properties from Neon.
     2. Uses GPT-4o-mini to find logical matches between leads and properties.
     3. Generates a luxury executive summary of the prospection with Claude 3.5 Sonnet.
     4. Validates all inputs and outputs with Pydantic.
@@ -81,7 +81,7 @@ async def run_prospection_weekly(data: Dict[str, Any], llm: LLMService, db: Supa
     Args:
         data: Execution parameters (e.g., priority_min).
         llm: Injected LLM service.
-        db: Injected Supabase service.
+        db: Injected database service.
 
     Returns:
         A dictionary matching ProspectionOutput schema.

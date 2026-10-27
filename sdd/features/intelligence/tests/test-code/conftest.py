@@ -2,8 +2,6 @@ import os
 import sys
 
 # Inject environment variables before any backend imports to satisfy Pydantic Settings
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("AI_RUNTIME_PROFILE", "groq-cloudflare")
 os.environ.setdefault("GROQ_API_KEY", "groq-test")
 os.environ.setdefault("CLOUDFLARE_ACCOUNT_ID", "cf-account-test")
@@ -38,8 +36,8 @@ def mock_llm_service():
     return mock
 
 @pytest.fixture
-def mock_supabase_service():
-    """Mock for backend.services.supabase_service.SupabaseService"""
+def mock_neon_service():
+    """Mock for backend.services.neon_service.NeonService"""
     mock = MagicMock()
     mock.insert_lead = AsyncMock(return_value={"id": "lead-123"})
     mock.get_active_leads = AsyncMock(return_value=[

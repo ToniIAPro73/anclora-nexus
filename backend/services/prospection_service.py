@@ -20,7 +20,7 @@ from backend.models.prospection import (
 )
 from backend.services.scoring_service import scoring_service
 from backend.services.origin_editability_policy import sanitize_payload
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.buyer_memory_service import buyer_memory_service
 
 
@@ -41,7 +41,7 @@ class ProspectionService:
         # Prefer current unified model first.
         for table in ("properties", "prospected_properties"):
             try:
-                supabase_service.client.table(table).select("id").limit(1).execute()
+                neon_service.client.table(table).select("id").limit(1).execute()
                 existing_tables.append(table)
             except Exception:
                 continue
@@ -53,7 +53,7 @@ class ProspectionService:
             for table in existing_tables:
                 try:
                     probe = (
-                        supabase_service.client.table(table)
+                        neon_service.client.table(table)
                         .select("id")
                         .eq("org_id", org_id)
                         .limit(1)
@@ -71,7 +71,7 @@ class ProspectionService:
         tables: List[str] = []
         for table in ("properties", "prospected_properties"):
             try:
-                supabase_service.client.table(table).select("id").limit(1).execute()
+                neon_service.client.table(table).select("id").limit(1).execute()
                 tables.append(table)
             except Exception:
                 continue
@@ -80,7 +80,7 @@ class ProspectionService:
     def _table_has_column(self, table: str, column: str) -> bool:
         """Best-effort check to avoid querying non-existent columns."""
         try:
-            supabase_service.client.table(table).select(column).limit(1).execute()
+            neon_service.client.table(table).select(column).limit(1).execute()
             return True
         except Exception:
             return False
@@ -88,7 +88,7 @@ class ProspectionService:
     def _table_exists(self, table: str) -> bool:
         """Best-effort table existence check."""
         try:
-            supabase_service.client.table(table).select("id").limit(1).execute()
+            neon_service.client.table(table).select("id").limit(1).execute()
             return True
         except Exception:
             return False
@@ -229,7 +229,7 @@ class ProspectionService:
             **data.model_dump(exclude_none=True),
         }
 
-        # Normalize Enums to strings for Supabase
+        # Normalize Enums to strings for Neon
         if "source_system" in record:
             record["source_system"] = str(record["source_system"].value)
         if "source_portal" in record and record["source_portal"] is not None:
@@ -258,7 +258,7 @@ class ProspectionService:
         record["high_ticket_score"] = score_result.score
         record["score_breakdown"] = score_result.breakdown
 
-        response = supabase_service.client.table(self._property_table(org_id)).insert(
+        response = neon_service.client.table(self._property_table(org_id)).insert(
             record
         ).execute()
         return response.data[0]
@@ -277,7 +277,7 @@ class ProspectionService:
         # for this org. This keeps prospection cards aligned with the match board.
         try:
             matches_base = (
-                supabase_service.client.table("property_buyer_matches")
+                neon_service.client.table("property_buyer_matches")
                 .select("property_id, match_score")
                 .eq("org_id", org_id)
                 .limit(5000)
@@ -300,7 +300,7 @@ class ProspectionService:
                 for property_table in self._property_tables():
                     try:
                         rows = (
-                            supabase_service.client.table(property_table)
+                            neon_service.client.table(property_table)
                             .select("*")
                             .in_("id", matched_property_ids)
                             .limit(5000)
@@ -348,7 +348,7 @@ class ProspectionService:
             supports_source_system = self._table_has_column(property_table, "source_system")
 
             query = (
-                supabase_service.client.table(property_table)
+                neon_service.client.table(property_table)
                 .select("*", count="exact")
                 .eq("org_id", org_id)
             )
@@ -387,7 +387,7 @@ class ProspectionService:
         # recover property cards by property_id linked to org matches.
         try:
             matches_resp = (
-                supabase_service.client.table("property_buyer_matches")
+                neon_service.client.table("property_buyer_matches")
                 .select("property_id")
                 .eq("org_id", org_id)
                 .limit(5000)
@@ -400,7 +400,7 @@ class ProspectionService:
                 for property_table in tables:
                     try:
                         resp = (
-                            supabase_service.client.table(property_table)
+                            neon_service.client.table(property_table)
                             .select("*")
                             .in_("id", property_ids)
                             .range(offset, offset + limit - 1)
@@ -437,7 +437,7 @@ class ProspectionService:
         """Get a single property by ID with org isolation."""
         property_table = self._property_table(org_id)
         response = (
-            supabase_service.client.table(property_table)
+            neon_service.client.table(property_table)
             .select("*")
             .eq("id", property_id)
             .eq("org_id", org_id)
@@ -480,7 +480,7 @@ class ProspectionService:
 
         # 4. Perform update
         response = (
-            supabase_service.client.table(property_table)
+            neon_service.client.table(property_table)
             .update(update_data)
             .eq("id", property_id)
             .eq("org_id", org_id)
@@ -506,7 +506,7 @@ class ProspectionService:
         )
 
         response = (
-            supabase_service.client.table(property_table)
+            neon_service.client.table(property_table)
             .update({
                 "high_ticket_score": score_result.score,
                 "score_breakdown": score_result.breakdown,
@@ -535,7 +535,7 @@ class ProspectionService:
             if record.get(key) is None:
                 record[key] = value
 
-        response = supabase_service.client.table("buyer_profiles").insert(
+        response = neon_service.client.table("buyer_profiles").insert(
             record
         ).execute()
         return self._normalize_buyer_record(response.data[0])
@@ -553,7 +553,7 @@ class ProspectionService:
     ) -> Dict[str, Any]:
         """List buyer profiles with filters."""
         query = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .select("*", count="exact")
             .eq("org_id", org_id)
             .order("motivation_score", desc=True)
@@ -583,7 +583,7 @@ class ProspectionService:
     async def get_buyer(self, org_id: str, buyer_id: str) -> Optional[Dict[str, Any]]:
         """Get a single buyer by ID with org isolation."""
         response = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .select("*")
             .eq("id", buyer_id)
             .eq("org_id", org_id)
@@ -599,7 +599,7 @@ class ProspectionService:
         update_data = self._coerce_buyer_payload(update_data)
 
         response = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .update(update_data)
             .eq("id", buyer_id)
             .eq("org_id", org_id)
@@ -623,7 +623,7 @@ class ProspectionService:
     ) -> Dict[str, Any]:
         """List matches with optional filters, ordered by score."""
         query = (
-            supabase_service.client.table("property_buyer_matches")
+            neon_service.client.table("property_buyer_matches")
             .select("*", count="exact")
             .eq("org_id", org_id)
             .order("match_score", desc=True)
@@ -667,7 +667,7 @@ class ProspectionService:
         - 15% buyer motivation
         """
         matches_query = (
-            supabase_service.client.table("property_buyer_matches")
+            neon_service.client.table("property_buyer_matches")
             .select("*")
             .eq("org_id", org_id)
             .order("match_score", desc=True)
@@ -689,7 +689,7 @@ class ProspectionService:
 
         buyer_ids = list({str(m.get("buyer_id")) for m in match_rows if m.get("buyer_id")})
         buyers = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .select("id,motivation_score,status")
             .eq("org_id", org_id)
             .in_("id", buyer_ids)
@@ -765,7 +765,7 @@ class ProspectionService:
             update_data["match_status"] = str(update_data["match_status"])
 
         response = (
-            supabase_service.client.table("property_buyer_matches")
+            neon_service.client.table("property_buyer_matches")
             .update(update_data)
             .eq("id", match_id)
             .eq("org_id", org_id)
@@ -786,7 +786,7 @@ class ProspectionService:
         property_table = self._property_table(org_id)
         # Fetch properties
         prop_query = (
-            supabase_service.client.table(property_table)
+            neon_service.client.table(property_table)
             .select("*")
             .eq("org_id", org_id)
         )
@@ -798,7 +798,7 @@ class ProspectionService:
 
         # Fetch active buyers
         buyer_query = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .select("*")
             .eq("org_id", org_id)
             .eq("status", "active")
@@ -809,7 +809,7 @@ class ProspectionService:
 
         # Fetch existing matches for dedup
         existing_matches_response = (
-            supabase_service.client.table("property_buyer_matches")
+            neon_service.client.table("property_buyer_matches")
             .select("id, property_id, buyer_id")
             .eq("org_id", org_id)
             .execute()
@@ -837,7 +837,7 @@ class ProspectionService:
 
                 if pair_key in existing_pairs:
                     # Update existing match
-                    supabase_service.client.table("property_buyer_matches").update(
+                    neon_service.client.table("property_buyer_matches").update(
                         match_data
                     ).eq("id", existing_pairs[pair_key]).execute()
                     updated += 1
@@ -849,7 +849,7 @@ class ProspectionService:
                         "buyer_id": buyer["id"],
                         "match_status": "candidate",
                     })
-                    supabase_service.client.table("property_buyer_matches").insert(
+                    neon_service.client.table("property_buyer_matches").insert(
                         match_data
                     ).execute()
                     created += 1
@@ -874,7 +874,7 @@ class ProspectionService:
         """Log a commercial activity for a match."""
         # Verify match exists and belongs to org
         match_check = (
-            supabase_service.client.table("property_buyer_matches")
+            neon_service.client.table("property_buyer_matches")
             .select("id")
             .eq("id", match_id)
             .eq("org_id", org_id)
@@ -893,7 +893,7 @@ class ProspectionService:
         if created_by:
             record["created_by"] = created_by
 
-        response = supabase_service.client.table("match_activity_log").insert(
+        response = neon_service.client.table("match_activity_log").insert(
             record
         ).execute()
         return response.data[0]
@@ -903,7 +903,7 @@ class ProspectionService:
     ) -> Dict[str, Any]:
         """List activities for a specific match."""
         response = (
-            supabase_service.client.table("match_activity_log")
+            neon_service.client.table("match_activity_log")
             .select("*", count="exact")
             .eq("org_id", org_id)
             .eq("match_id", match_id)
@@ -954,7 +954,7 @@ class ProspectionService:
 
         # Properties block
         prop_query = (
-            supabase_service.client.table(property_table)
+            neon_service.client.table(property_table)
             .select("*", count="exact")
             .eq("org_id", org_id)
         )
@@ -982,7 +982,7 @@ class ProspectionService:
             match_total = 0
         else:
             match_query = (
-                supabase_service.client.table("property_buyer_matches")
+                neon_service.client.table("property_buyer_matches")
                 .select("*", count="exact")
                 .eq("org_id", org_id)
             )
@@ -1020,7 +1020,7 @@ class ProspectionService:
         }
         if buyers_table_exists:
             buyer_query = (
-                supabase_service.client.table("buyer_profiles")
+                neon_service.client.table("buyer_profiles")
                 .select("*", count="exact")
                 .eq("org_id", org_id)
             )
@@ -1031,7 +1031,7 @@ class ProspectionService:
                     buyer_query = buyer_query.eq("assigned_user_id", user_id)
                 elif matches_table_exists:
                     scoped_matches_query = (
-                        supabase_service.client.table("property_buyer_matches")
+                        neon_service.client.table("property_buyer_matches")
                         .select("buyer_id")
                         .eq("org_id", org_id)
                         .limit(5000)
@@ -1069,7 +1069,7 @@ class ProspectionService:
             buyer_items = self._normalize_buyer_items(buyer_resp.data or [])
             buyer_total = buyer_resp.count or len(buyer_items)
             summary_query = (
-                supabase_service.client.table("buyer_profiles")
+                neon_service.client.table("buyer_profiles")
                 .select("source_type,source_platform")
                 .eq("org_id", org_id)
                 .limit(5000)
@@ -1086,7 +1086,7 @@ class ProspectionService:
             buyer_source_summary["crm_reactivation"] = buyer_source_summary["by_source_type"].get("crm_reactivation", 0)
             buyer_source_summary["web_inbound"] = buyer_source_summary["by_source_type"].get("web_inbound", 0)
             preview_map = await buyer_memory_service.get_preview_map(
-                db=supabase_service,
+                db=neon_service,
                 org_id=org_id,
                 buyer_ids=[str(item.get("id")) for item in buyer_items if item.get("id")],
             )
@@ -1131,11 +1131,11 @@ class ProspectionService:
             "due_date": due_date or datetime.utcnow().isoformat(),
             "ai_generated": False,
         }
-        task_res = supabase_service.client.table("tasks").insert(task_payload).execute()
+        task_res = neon_service.client.table("tasks").insert(task_payload).execute()
         task_row = task_res.data[0] if task_res.data else {}
 
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "event_type": "workspace_followup_task_created",
@@ -1195,7 +1195,7 @@ class ProspectionService:
             raise ValueError("unsupported entity type")
 
         try:
-            await supabase_service.insert_audit_log(
+            await neon_service.insert_audit_log(
                 {
                     "org_id": org_id,
                     "event_type": "workspace_item_reviewed",
@@ -1222,7 +1222,7 @@ class ProspectionService:
                 continue
             try:
                 rows = (
-                    supabase_service.client.table(property_table)
+                    neon_service.client.table(property_table)
                     .select("id")
                     .eq("org_id", org_id)
                     .eq("assigned_user_id", user_id)
@@ -1253,7 +1253,7 @@ class ProspectionService:
         for property_table in self._property_tables():
             try:
                 props = (
-                    supabase_service.client.table(property_table)
+                    neon_service.client.table(property_table)
                     .select("*")
                     .eq("org_id", org_id)
                     .in_("id", property_ids)
@@ -1271,7 +1271,7 @@ class ProspectionService:
             for property_table in self._property_tables():
                 try:
                     props_any_org = (
-                        supabase_service.client.table(property_table)
+                        neon_service.client.table(property_table)
                         .select("*")
                         .in_("id", property_ids)
                         .execute()
@@ -1294,7 +1294,7 @@ class ProspectionService:
 
         # Fetch buyer names
         buyers = (
-            supabase_service.client.table("buyer_profiles")
+            neon_service.client.table("buyer_profiles")
             .select("id, full_name")
             .eq("org_id", org_id)
             .in_("id", buyer_ids)

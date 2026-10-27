@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 import { useOrgMembership } from './useOrgMembership'
 import { OrgRole } from '../contexts/OrgContext'
 
@@ -31,16 +31,16 @@ export function useTeamManagement() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       const token = session?.access_token
 
       if (!token) throw new Error('No active session')
 
       const response = await fetch(`/api/organizations/${org_id}/members`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ email, role })
       })
@@ -64,16 +64,16 @@ export function useTeamManagement() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       const token = session?.access_token
 
       if (!token) throw new Error('No active session')
 
       const response = await fetch(`/api/organizations/${org_id}/members/${memberId}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ role })
       })
@@ -97,7 +97,7 @@ export function useTeamManagement() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       const token = session?.access_token
 
       if (!token) throw new Error('No active session')
@@ -105,7 +105,7 @@ export function useTeamManagement() {
       const response = await fetch(`/api/organizations/${org_id}/members/${memberId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         }
       })
 
@@ -128,7 +128,7 @@ export function useTeamManagement() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       const token = session?.access_token
 
       if (!token) throw new Error('No active session')

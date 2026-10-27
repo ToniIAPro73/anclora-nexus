@@ -1,4 +1,4 @@
-"""Integration tests for the template library routes (TestClient, Supabase mocked)."""
+"""Integration tests for the template library routes (TestClient, Neon mocked)."""
 
 import os
 import sys
@@ -8,15 +8,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("NEXUS_DOCUMENT_ENCRYPTION_KEY", "00" * 32)
 os.environ.setdefault("ADVISOR_AI_BASE_URL", "")
 
 # Stub heavy transitive deps before importing routes
 for _mod in [
     "pydantic_settings",
-    "supabase",
+    "neon",
     "sqlalchemy",
     "sqlalchemy.orm",
     "sqlalchemy.ext",
@@ -70,7 +68,7 @@ def _make_client():
     return TestClient(app, raise_server_exceptions=True)
 
 
-def _mock_supabase_table(data: list, insert_data: list | None = None):
+def _mock_neon_table(data: list, insert_data: list | None = None):
     table_mock = MagicMock()
     query_mock = MagicMock()
     query_mock.select.return_value = query_mock
@@ -96,7 +94,7 @@ def client():
 def test_list_templates_returns_list(client):
     with patch(
         "backend.api.routes.dms_templates._table",
-        side_effect=lambda name: _mock_supabase_table([SAMPLE_TEMPLATE])(),
+        side_effect=lambda name: _mock_neon_table([SAMPLE_TEMPLATE])(),
     ):
         response = client.get("/api/dms/templates/")
     assert response.status_code == 200
@@ -109,7 +107,7 @@ def test_list_templates_returns_list(client):
 def test_create_template_returns_created_object(client):
     with patch(
         "backend.api.routes.dms_templates._table",
-        side_effect=lambda name: _mock_supabase_table([SAMPLE_TEMPLATE])(),
+        side_effect=lambda name: _mock_neon_table([SAMPLE_TEMPLATE])(),
     ):
         response = client.post(
             "/api/dms/templates/",
@@ -154,7 +152,7 @@ def test_publish_template_transitions_status(client):
     published = {**SAMPLE_TEMPLATE, "status": "published", "published_at": "2026-06-13T00:00:00Z"}
     with (
         patch("backend.api.routes.dms_templates._fetch_template", return_value={**SAMPLE_TEMPLATE, "org_id": MOCK_ORG_ID}),
-        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_supabase_table([published])()),
+        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_neon_table([published])()),
     ):
         response = client.patch(f"/api/dms/templates/{SAMPLE_TEMPLATE['id']}/publish")
     assert response.status_code == 200
@@ -166,7 +164,7 @@ def test_deprecate_template(client):
     deprecated = {**SAMPLE_TEMPLATE, "status": "deprecated"}
     with (
         patch("backend.api.routes.dms_templates._fetch_template", return_value={**SAMPLE_TEMPLATE, "org_id": MOCK_ORG_ID}),
-        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_supabase_table([deprecated])()),
+        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_neon_table([deprecated])()),
     ):
         response = client.patch(f"/api/dms/templates/{SAMPLE_TEMPLATE['id']}/deprecate")
     assert response.status_code == 200
@@ -178,7 +176,7 @@ def test_list_template_versions(client):
     version = {"id": "ver-1", "template_id": "tmpl-1", "version_number": 1, "immutable": False}
     with (
         patch("backend.api.routes.dms_templates._fetch_template", return_value=SAMPLE_TEMPLATE),
-        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_supabase_table([version])()),
+        patch("backend.api.routes.dms_templates._table", side_effect=lambda name: _mock_neon_table([version])()),
     ):
         response = client.get(f"/api/dms/templates/{SAMPLE_TEMPLATE['id']}/versions")
     assert response.status_code == 200

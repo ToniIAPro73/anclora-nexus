@@ -1,11 +1,11 @@
-import supabase from './supabase'
+import database from './neon-data-client'
 import { buildBackendUrl } from './backend-url'
 
 async function resolveCurrentOrgId(userId?: string): Promise<string> {
   if (!userId) throw new Error('No authenticated user to resolve org_id')
 
   // Prefer active membership org (source of truth for team-enabled flows)
-  const membershipRes = await supabase
+  const membershipRes = await database
     .from('organization_members')
     .select('org_id')
     .eq('user_id', userId)
@@ -18,7 +18,7 @@ async function resolveCurrentOrgId(userId?: string): Promise<string> {
   }
 
   // Fallback to user profile org_id
-  const profileRes = await supabase
+  const profileRes = await database
     .from('user_profiles')
     .select('org_id')
     .eq('id', userId)
@@ -36,9 +36,9 @@ interface LeadData {
 }
 
 export async function createLead(leadData: LeadData) {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   const token = session?.access_token
-  
+
   const res = await fetch(buildBackendUrl('/api/leads/intake'), {
     method: 'POST',
     headers: {
@@ -47,7 +47,7 @@ export async function createLead(leadData: LeadData) {
     },
     body: JSON.stringify(leadData)
   })
-  
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.detail || 'Error creating lead')
@@ -60,9 +60,9 @@ interface SkillData {
 }
 
 export async function runSkill(skill: string, data: SkillData = {}) {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   const token = session?.access_token
-  
+
   const res = await fetch(buildBackendUrl('/api/skills/run'), {
     method: 'POST',
     headers: {
@@ -71,7 +71,7 @@ export async function runSkill(skill: string, data: SkillData = {}) {
     },
     body: JSON.stringify({ skill, data })
   })
-  
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.detail || 'Error running skill')
@@ -94,9 +94,9 @@ export interface PropertyData {
 }
 
 export async function createProperty(propertyData: PropertyData) {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   const org_id = await resolveCurrentOrgId(session?.user?.id)
-  
+
   // Map frontend to backend fields
   const dbData = {
     org_id,
@@ -113,18 +113,18 @@ export async function createProperty(propertyData: PropertyData) {
     source_system: propertyData.source_system || 'manual',
     source_portal: propertyData.source_portal || null,
   }
-  
-  const { data, error } = await supabase.from('properties').insert(dbData).select().single()
-  
+
+  const { data, error } = await database.from('properties').insert(dbData).select().single()
+
   if (error) {
     throw new Error(error.message)
   }
-  
+
   return data
 }
 
 export async function getWeeklyStats() {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   const token = session?.access_token
 
   const res = await fetch(buildBackendUrl('/api/stats/weekly'), {
@@ -141,7 +141,7 @@ export async function getWeeklyStats() {
 }
 
 export async function fetchIntelligenceQuery(message: string, mode: 'fast' | 'deep' = 'fast', domainHint?: string) {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   const token = session?.access_token
 
   const res = await fetch(buildBackendUrl('/api/intelligence/query'), {
@@ -165,26 +165,26 @@ export async function fetchIntelligenceQuery(message: string, mode: 'fast' | 'de
  */
 export const api = {
   get: async <T>(path: string): Promise<T> => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session } } = await database.auth.getSession()
     const token = session?.access_token
-    
+
     const res = await fetch(buildBackendUrl(path), {
       headers: {
         'Authorization': `Bearer ${token || ''}`
       }
     })
-    
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || 'Error in GET request')
     }
     return res.json()
   },
-  
+
   post: async <T>(path: string, body: unknown): Promise<T> => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session } } = await database.auth.getSession()
     const token = session?.access_token
-    
+
     const res = await fetch(buildBackendUrl(path), {
       method: 'POST',
       headers: {
@@ -193,7 +193,7 @@ export const api = {
       },
       body: JSON.stringify(body)
     })
-    
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || 'Error in POST request')

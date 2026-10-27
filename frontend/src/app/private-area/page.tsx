@@ -3,11 +3,11 @@
 import { Building2, LockKeyhole, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useI18n } from '@/lib/i18n'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 import { PrivateAreaShell } from '@/components/private-area/PrivateAreaShell'
 import { resolvePortalEntryHref } from '@/lib/private-area-access'
 import { useEffect, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { IdentitySession } from '@/lib/neon-data-client'
 import Link from 'next/link'
 
 const PORTAL_META = [
@@ -20,7 +20,7 @@ export default function PrivateAreaPage() {
 
   useEffect(() => {
     let mounted = true
-    void supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+    void database.auth.getSession().then(({ data }: { data: { session: IdentitySession | null } }) => {
       if (mounted) setIsAuthenticated(Boolean(data.session))
     })
     return () => {

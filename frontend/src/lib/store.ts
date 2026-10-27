@@ -1,6 +1,6 @@
 ﻿'use client'
 import { create } from 'zustand'
-import supabase from './supabase'
+import database from './neon-data-client'
 import { listMatches, listProperties } from './prospection-api'
 import { dqApi, DQQualityIssue, DQMetrics, DQEntityCandidate, ResolutionAction, EntityType } from './dq-api'
 
@@ -134,7 +134,7 @@ interface AppState {
   deleteProperty: (id: string) => void
   sendIntelligenceQuery: (message: string, mode: 'fast' | 'deep', domainHint?: string) => Promise<void>
   clearIntelligenceHistory: () => void
-  
+
   // Data Quality
   dqIssues: DQQualityIssue[]
   dqMetrics: DQMetrics | null
@@ -402,7 +402,7 @@ const MOCK_TASKS: Task[] = [
   { id: '8', title: 'Revisar nuevas captaciones Idealista', due_time: 'Martes 10:00', status: 'pending' },
   { id: '9', title: 'Llamar a Elena Rossi (Partner)', due_time: 'MiÃ©rcoles 12:00', status: 'pending' },
   { id: '10', title: 'Enviar valoraciÃ³n Dr. Hans Weber', due_time: 'Jueves 16:00', status: 'pending' },
-  
+
   { id: '11', title: 'Follow-up Marie & Pierre Laurent', due_time: 'Ayer 14:00', status: 'done' },
   { id: '12', title: 'Email bienvenida Isabella Garcia', due_time: 'Ayer 09:00', status: 'done' },
   { id: '13', title: 'Cierre notarÃ­a propiedad CalviÃ ', due_time: 'Hace 2 dÃ­as', status: 'done' },
@@ -714,7 +714,7 @@ export const useStore = create<AppState>((set) => ({
   updateProperty: (id: string, updates: Partial<Property>) => set((state) => ({
     properties: state.properties.map(p => p.id === id ? { ...p, ...updates } : p)
   })),
-  
+
   toggleTask: (id) => set((state) => ({
     tasks: state.tasks.map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t)
   })),
@@ -735,7 +735,7 @@ export const useStore = create<AppState>((set) => ({
       // Import dynamic to avoid circular dep if any, though here it's fine
       const { fetchIntelligenceQuery } = await import('./api')
       const response = await fetchIntelligenceQuery(message, mode, domainHint)
-      
+
       set((state) => ({
         intelligence: {
           ...state.intelligence,
@@ -809,10 +809,10 @@ export const useStore = create<AppState>((set) => ({
 
   initialize: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await database.auth.getUser()
       const userId = user?.id || ''
 
-      const { data: profile } = await supabase
+      const { data: profile } = await database
         .from('user_profiles')
         .select('org_id')
         .eq('id', userId)
@@ -820,7 +820,7 @@ export const useStore = create<AppState>((set) => ({
 
       const preferredOrgId = profile?.org_id || null
 
-      const { data: activeMemberships } = await supabase
+      const { data: activeMemberships } = await database
         .from('organization_members')
         .select('org_id,role')
         .eq('user_id', userId)
@@ -834,10 +834,10 @@ export const useStore = create<AppState>((set) => ({
       const currentOrgId = currentMembership?.org_id || preferredOrgId
       const currentRole = currentMembership?.role
 
-      // Try to fetch from Supabase, but fallback to mock data if it fails
-      let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false })
-      let tasksQuery = supabase.from('tasks').select('*').order('due_date', { ascending: true })
-      let propsQuery = supabase.from('properties').select('*')
+      // Try to fetch from Neon, but fallback to mock data if it fails
+      let leadsQuery = database.from('leads').select('*').order('created_at', { ascending: false })
+      let tasksQuery = database.from('tasks').select('*').order('due_date', { ascending: true })
+      let propsQuery = database.from('properties').select('*')
 
       if (currentOrgId) {
         leadsQuery = leadsQuery.eq('org_id', currentOrgId)
@@ -856,7 +856,7 @@ export const useStore = create<AppState>((set) => ({
         tasksQuery,
         propsQuery,
       ])
-      const { data: logs } = await supabase.from('agent_logs').select('*').order('timestamp', { ascending: false }).limit(20)
+      const { data: logs } = await database.from('agent_logs').select('*').order('timestamp', { ascending: false }).limit(20)
 
       if (leads && leads.length > 0) {
         set({
@@ -956,14 +956,14 @@ export const useStore = create<AppState>((set) => ({
       // Always override store properties to avoid leaking initial mock portfolio
       // to role-scoped users (e.g. agents with zero assigned properties).
       set({ properties: mergedProperties })
-      
+
       if (logs && logs.length > 0) {
-        set({ 
+        set({
           agentLogs: logs.map((log: Record<string, unknown>) => {
             const date = new Date(String(log.timestamp))
             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             const output = log.output as Record<string, unknown> || {}
-            
+
             return normalizeMojibakeValue({
               id: String(log.id),
               agent: String(log.agent_name || log.skill_name || 'Agente'),
@@ -977,9 +977,9 @@ export const useStore = create<AppState>((set) => ({
 
       // Update stats
       // const latestRecap = logs && logs.length > 0 ? logs[0] : null // Placeholder or fetch actual recap
-      
+
       // Fetch actual latest recap for insight
-      const { data: recaps } = await supabase.from('weekly_recaps').select('insights').order('created_at', { ascending: false }).limit(1)
+      const { data: recaps } = await database.from('weekly_recaps').select('insights').order('created_at', { ascending: false }).limit(1)
       const latestInsight = recaps && recaps.length > 0 ? recaps[0].insights : 'Ejecuta el Recap Semanal para generar insights.'
 
       set({
@@ -991,7 +991,7 @@ export const useStore = create<AppState>((set) => ({
         }
       })
     } catch (error) {
-      console.log('Using mock data (Supabase not available):', error)
+      console.log('Using mock data (Neon Data API unavailable):', error)
       // Mock data is already set as default, no need to do anything
     }
   }

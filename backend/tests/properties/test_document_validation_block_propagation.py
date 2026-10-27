@@ -29,8 +29,6 @@ from hypothesis.strategies import (
 )
 
 # Environment variables needed before importing the service
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.services.dms_signature_service import (
     DmsSignatureService,
@@ -40,7 +38,7 @@ from backend.services.dms_signature_service import (
 
 
 # ---------------------------------------------------------------------------
-# Fake Supabase client for property tests
+# Fake Neon client for property tests
 # ---------------------------------------------------------------------------
 
 class FakeExecuteResult:
@@ -87,7 +85,7 @@ class FakeAuditQuery:
 
 
 class FakeClient:
-    """Minimal Supabase client mock for property testing."""
+    """Minimal Neon client mock for property testing."""
 
     def __init__(self, document_status: str = "ready_for_signature"):
         self._document_status = document_status
@@ -106,7 +104,7 @@ def _make_service(document_status: str = "ready_for_signature") -> DmsSignatureS
     """Create a DmsSignatureService with an injected fake client."""
     client = FakeClient(document_status)
     return DmsSignatureService(
-        supabase_client=client,
+        database_client=client,
         audit_secret="property-test-secret-key-32bytes!",
     )
 

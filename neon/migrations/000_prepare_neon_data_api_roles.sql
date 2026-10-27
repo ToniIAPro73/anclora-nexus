@@ -1,5 +1,5 @@
 -- Run on the isolated Neon branch before provisioning Neon Data API.
--- Supabase-imported role names conflict with Neon Data API's managed roles.
+-- Legacy role names conflict with Neon Data API managed roles.
 -- Existing role grants stay attached to the renamed legacy roles.
 DO $$
 BEGIN

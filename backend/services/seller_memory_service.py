@@ -14,7 +14,7 @@ from backend.models.seller_memory import (
     SellerMemoryResponse,
 )
 from backend.services.embedding_service import embedding_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 
 DEFAULT_QUERY = "seguimiento captacion objeciones siguiente paso exclusividad"
@@ -31,7 +31,7 @@ STOPWORDS = {
 
 class SellerMemoryService:
     def __init__(self) -> None:
-        self.client = SupabaseService().client
+        self.client = NeonService().client
 
     def _table_exists(self, table: str) -> bool:
         try:
@@ -147,7 +147,7 @@ class SellerMemoryService:
     async def rebuild_for_seller(
         self,
         *,
-        db: SupabaseService,
+        db: NeonService,
         org_id: str,
         seller_id: str,
     ) -> SellerMemoryRebuildResponse:
@@ -257,7 +257,7 @@ class SellerMemoryService:
     async def search(
         self,
         *,
-        db: SupabaseService,
+        db: NeonService,
         org_id: str,
         seller_id: str,
         query: str = DEFAULT_QUERY,

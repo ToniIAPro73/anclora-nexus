@@ -31,7 +31,7 @@ from backend.models.sellers import (
 )
 from backend.services import sellers_service
 from backend.services.seller_memory_service import seller_memory_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.services.llm_service import llm_service
 from ..deps import check_budget_hard_stop, get_current_user, get_org_id
 from backend.skills.whale_dossier import run_whale_dossier
@@ -52,10 +52,10 @@ router = APIRouter()
 
 _db_service = None
 
-def get_db() -> SupabaseService:
+def get_db() -> NeonService:
     global _db_service
     if _db_service is None:
-        _db_service = SupabaseService()
+        _db_service = NeonService()
     return _db_service
 
 

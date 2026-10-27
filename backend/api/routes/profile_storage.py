@@ -57,12 +57,7 @@ async def upload_avatar(
     pathname = f"{user_id}/avatar-{uuid4().hex}{extension}"
     put_private_blob(pathname, content, content_type=file.content_type or "application/octet-stream", bucket="avatars")
     filename = PurePosixPath(pathname).name
-    if settings.NEXUS_STORAGE_PROVIDER.strip().lower() == "vercel_blob":
-        avatar_url = str(request.base_url).rstrip("/") + f"/api/profile/avatars/{user_id}/{filename}"
-    else:
-        from backend.services.supabase_service import supabase_service
-
-        avatar_url = supabase_service.client.storage.from_("avatars").get_public_url(f"{user_id}/{filename}")
+    avatar_url = str(request.base_url).rstrip("/") + f"/api/profile/avatars/{user_id}/{filename}"
     return {"avatar_url": avatar_url}
 
 

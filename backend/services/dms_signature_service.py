@@ -63,21 +63,19 @@ class DmsSignatureService:
     propagation and logs all events in the audit_log with HMAC-SHA256 integrity.
     """
 
-    def __init__(self, supabase_client: Any = None, audit_secret: Optional[str] = None) -> None:
-        self._client = supabase_client
+    def __init__(self, database_client: Any = None, audit_secret: Optional[str] = None) -> None:
+        self._client = database_client
         self._audit_secret = (
             audit_secret
             or settings.INTERNAL_AUDIT_SECRET
-            or settings.SUPABASE_SERVICE_ROLE_KEY
-            or settings.SUPABASE_ANON_KEY
         )
 
     @property
     def client(self) -> Any:
-        """Lazy-load Supabase client from the shared service if not injected."""
+        """Lazy-load Neon client from the shared service if not injected."""
         if self._client is None:
-            from backend.services.supabase_service import supabase_service
-            self._client = supabase_service.client
+            from backend.services.neon_service import neon_service
+            self._client = neon_service.client
         return self._client
 
     # ------------------------------------------------------------------

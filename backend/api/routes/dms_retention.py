@@ -10,7 +10,7 @@ from backend.api.deps import get_current_user, get_org_id
 from backend.api.middleware import verify_org_membership
 from backend.models.dms import TemplateDocumentType
 from backend.services.document_retention_service import enforce_retention_for_org, get_retention_policy
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def require_dms_membership(
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 class RetentionPolicyCreate(BaseModel):

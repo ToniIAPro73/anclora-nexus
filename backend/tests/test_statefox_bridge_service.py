@@ -2,8 +2,6 @@ import asyncio
 import os
 from unittest.mock import AsyncMock, patch
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.services import statefox_bridge_service
 

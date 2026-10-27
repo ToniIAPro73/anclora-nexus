@@ -73,7 +73,7 @@ class LeadIngestionPayload(BaseModel):
     gdpr_consent_at: Optional[datetime] = None
     gdpr_consent_text_version: Optional[str] = None
     captured_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Business data
     name: str
     email: Optional[EmailStr] = None
@@ -125,7 +125,7 @@ class PropertyIngestionPayload(BaseModel):
     source_system: PropertySourceSystem
     source_portal: PropertySourcePortal
     captured_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Business data
     title: str
     address: str

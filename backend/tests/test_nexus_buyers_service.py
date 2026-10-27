@@ -56,7 +56,7 @@ def test_create_buyer_computes_referral_scores(monkeypatch) -> None:
     service = ProspectionService()
     store = {"buyer_profiles": []}
     mock_client = _MockClient(store)
-    monkeypatch.setattr("backend.services.prospection_service.supabase_service.client", mock_client)
+    monkeypatch.setattr("backend.services.prospection_service.neon_service.client", mock_client)
 
     buyer = asyncio.run(
         service.create_buyer(
@@ -92,7 +92,7 @@ def test_workspace_returns_buyer_source_summary(monkeypatch) -> None:
         "property_buyer_matches": [],
     }
     mock_client = _MockClient(store)
-    monkeypatch.setattr("backend.services.prospection_service.supabase_service.client", mock_client)
+    monkeypatch.setattr("backend.services.prospection_service.neon_service.client", mock_client)
 
     workspace = asyncio.run(service.get_workspace(org_id="org-1", role="owner", user_id=None))
 

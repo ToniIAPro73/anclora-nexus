@@ -10,7 +10,7 @@ from backend.models.feed_orchestrator import (
     FeedValidationResponse,
     FeedWorkspaceResponse,
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class FeedOrchestratorService:
@@ -23,7 +23,7 @@ class FeedOrchestratorService:
 
     def _table_exists(self, table: str) -> bool:
         try:
-            supabase_service.client.table(table).select("id").limit(1).execute()
+            neon_service.client.table(table).select("id").limit(1).execute()
             return True
         except Exception:
             return False
@@ -67,7 +67,7 @@ class FeedOrchestratorService:
         for table in self._property_tables():
             try:
                 rows = (
-                    supabase_service.client.table(table)
+                    neon_service.client.table(table)
                     .select("*")
                     .eq("org_id", org_id)
                     .order("created_at", desc=True)
@@ -95,7 +95,7 @@ class FeedOrchestratorService:
             }
         try:
             rows = (
-                supabase_service.client.table("feed_channel_configs")
+                neon_service.client.table("feed_channel_configs")
                 .select("channel, format, is_enabled, max_items_per_run, rules_json")
                 .eq("org_id", org_id)
                 .execute()
@@ -185,7 +185,7 @@ class FeedOrchestratorService:
 
         if self._table_exists("feed_channel_configs"):
             try:
-                supabase_service.client.table("feed_channel_configs").upsert(
+                neon_service.client.table("feed_channel_configs").upsert(
                     payload,
                     on_conflict="org_id,channel",
                 ).execute()
@@ -232,7 +232,7 @@ class FeedOrchestratorService:
         if self._table_exists("feed_runs"):
             try:
                 rows = (
-                    supabase_service.client.table("feed_runs")
+                    neon_service.client.table("feed_runs")
                     .select("channel, created_at")
                     .eq("org_id", org_id)
                     .order("created_at", desc=True)
@@ -257,7 +257,7 @@ class FeedOrchestratorService:
         if self._table_exists("ingestion_events"):
             try:
                 rows = (
-                    supabase_service.client.table("ingestion_events")
+                    neon_service.client.table("ingestion_events")
                     .select("connector_name, processed_at")
                     .eq("org_id", org_id)
                     .ilike("connector_name", "feed:%")
@@ -402,7 +402,7 @@ class FeedOrchestratorService:
         if self._table_exists("feed_runs"):
             try:
                 run_row = (
-                    supabase_service.client.table("feed_runs")
+                    neon_service.client.table("feed_runs")
                     .insert(
                         {
                             "org_id": org_id,
@@ -450,14 +450,14 @@ class FeedOrchestratorService:
                         }
                     )
                 if payload:
-                    supabase_service.client.table("feed_validation_issues").insert(payload).execute()
+                    neon_service.client.table("feed_validation_issues").insert(payload).execute()
             except Exception:
                 pass
 
         # Legacy fallback logging
         if self._table_exists("ingestion_events"):
             try:
-                supabase_service.client.table("ingestion_events").insert(
+                neon_service.client.table("ingestion_events").insert(
                     {
                         "org_id": org_id,
                         "entity_type": "property",
@@ -540,7 +540,7 @@ class FeedOrchestratorService:
         # Preferred persistence table
         if self._table_exists("feed_runs"):
             query = (
-                supabase_service.client.table("feed_runs")
+                neon_service.client.table("feed_runs")
                 .select("id, channel, status, run_mode, published_count, rejected_count, created_at", count="exact")
                 .eq("org_id", org_id)
                 .order("created_at", desc=True)
@@ -577,7 +577,7 @@ class FeedOrchestratorService:
         if not self._table_exists("ingestion_events"):
             return [], 0
         query = (
-            supabase_service.client.table("ingestion_events")
+            neon_service.client.table("ingestion_events")
             .select("external_id, connector_name, status, payload, processed_at", count="exact")
             .eq("org_id", org_id)
             .ilike("connector_name", "feed:%")

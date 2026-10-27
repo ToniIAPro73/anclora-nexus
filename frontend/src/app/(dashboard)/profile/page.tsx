@@ -7,7 +7,7 @@ import {
   UserCircle, ExternalLink, AlertCircle, ChevronLeft, Save
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 import { buildBackendUrl } from '@/lib/backend-url'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
@@ -46,13 +46,13 @@ export default function ProfilePage() {
   const fetchProfile = async () => {
     try {
       setLoading(true)
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const { data: { user: authUser } } = await database.auth.getUser()
 
       if (authUser) {
         setUser(authUser)
 
         // 1. Fetch User Profile
-        let { data: profileData } = await supabase
+        let { data: profileData } = await database
           .from('user_profiles')
           .select('*')
           .eq('id', authUser.id)
@@ -60,10 +60,10 @@ export default function ProfilePage() {
 
         // 2. If no profile, create it using any available organization
         if (!profileData) {
-          const { data: orgs } = await supabase.from('organizations').select('id').limit(1)
+          const { data: orgs } = await database.from('organizations').select('id').limit(1)
           const orgId = orgs?.[0]?.id || '00000000-0000-0000-0000-000000000000'
 
-          const { data: newProfile } = await supabase
+          const { data: newProfile } = await database
             .from('user_profiles')
             .upsert({
               id: authUser.id,
@@ -81,7 +81,7 @@ export default function ProfilePage() {
 
         if (profileData) {
           // 3. Fetch Organization
-          const { data: orgData } = await supabase
+          const { data: orgData } = await database
             .from('organizations')
             .select('*')
             .eq('id', profileData.org_id)
@@ -114,7 +114,7 @@ export default function ProfilePage() {
 
     setIsSaving(true)
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('user_profiles')
         .update({
           full_name: formData.full_name,
@@ -143,7 +143,7 @@ export default function ProfilePage() {
     setErrorStatus(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await database.auth.getSession()
       if (!session?.access_token) throw new Error('No authenticated session')
       const body = new FormData()
       body.set('file', file)
@@ -158,13 +158,8 @@ export default function ProfilePage() {
       }
       const publicUrl = uploadResult.avatar_url
 
-      const { error: profileError } = await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+      const { error: profileError } = await database.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
       if (profileError) throw profileError
-      if (process.env.NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED !== 'true') {
-        const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
-        if (authError) throw authError
-      }
-
       await fetchProfile()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

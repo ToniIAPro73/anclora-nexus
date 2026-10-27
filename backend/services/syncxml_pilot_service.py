@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr, Field, ValidationError
 from backend.config import settings
 from backend.services.access_request_email_service import access_request_email_service, build_access_request_fallback_admin_email
 from backend.services.email_delivery_service import send_email_native
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ PRODUCTION_OR_REAL_DATA_PATTERN = re.compile(
 )
 INSUFFICIENT_VALUES = {"", "no especificado", "n/a", "na", "none", "null"}
 DEFAULT_TEMPORARY_PASSWORD_DAYS = 7
-REAL_WRITE_BLOCK_REASON = "REAL_SUPABASE_WRITE_BLOCKED"
+REAL_WRITE_BLOCK_REASON = "REAL_NEON_WRITE_BLOCKED"
 
 
 class SyncXmlPilotPayload(BaseModel):
@@ -130,13 +130,13 @@ class SyncXmlPilotService:
     def _is_non_production_environment(self) -> bool:
         return (settings.APP_ENV or "development").lower() != "production" or (settings.GUESTHUB_ENV or "development").lower() != "production"
 
-    def _allow_real_supabase_write(self) -> bool:
-        return bool(settings.ALLOW_REAL_SUPABASE_WRITE)
+    def _allow_real_neon_write(self) -> bool:
+        return bool(settings.ALLOW_REAL_NEON_WRITE)
 
     def _is_staging_safety_mode(self) -> bool:
         return (
             self._is_non_production_environment()
-            or not self._allow_real_supabase_write()
+            or not self._allow_real_neon_write()
             or bool(settings.USE_SYNTHETIC_DATA_ONLY)
         )
 
@@ -148,7 +148,7 @@ class SyncXmlPilotService:
             "action": action,
             "environment": settings.APP_ENV,
             "syncxmlEnvironment": settings.GUESTHUB_ENV,
-            "allowRealSupabaseWrite": self._allow_real_supabase_write(),
+            "allowRealNeonWrite": self._allow_real_neon_write(),
             "useSyntheticDataOnly": bool(settings.USE_SYNTHETIC_DATA_ONLY),
         }
 
@@ -210,7 +210,7 @@ class SyncXmlPilotService:
         try:
             if idempotency_key:
                 existing = (
-                    supabase_service.client.table("access_requests")
+                    neon_service.client.table("access_requests")
                     .select("id,status,email,created_at,idempotency_key")
                     .eq("idempotency_key", idempotency_key)
                     .limit(1)
@@ -220,7 +220,7 @@ class SyncXmlPilotService:
                     logger.info("SyncXML pilot webhook idempotent replay", extra=trace)
                     return existing.data[0]
 
-            result = supabase_service.client.table("access_requests").insert(record_data).execute()
+            result = neon_service.client.table("access_requests").insert(record_data).execute()
             if not result.data:
                 raise RuntimeError("Failed to persist SyncXML lead")
             record = result.data[0]
@@ -241,7 +241,7 @@ class SyncXmlPilotService:
                 update_data["rejection_reason"] = review_result.get("emailReasonUser") or "Fuera del alcance actual del piloto."
 
             updated = (
-                supabase_service.client.table("access_requests")
+                neon_service.client.table("access_requests")
                 .update(update_data)
                 .eq("id", record["id"])
                 .execute()
@@ -396,7 +396,7 @@ class SyncXmlPilotService:
             },
         }
         try:
-            supabase_service.client.table("tasks").insert(payload).execute()
+            neon_service.client.table("tasks").insert(payload).execute()
         except Exception as exc:
             logger.warning("Could not create SyncXML review task: %s", exc)
 
@@ -418,7 +418,7 @@ class SyncXmlPilotService:
         except Exception as exc:
             logger.warning("SyncXML email failed for request %s: %s", record.get("id"), exc)
             try:
-                supabase_service.client.table("access_requests").update({
+                neon_service.client.table("access_requests").update({
                     "metadata": {
                         **(record.get("metadata") or {}),
                         "email_status": "failed",
@@ -567,7 +567,7 @@ class SyncXmlPilotService:
 
     async def _get_syncxml_request(self, org_id: str, request_id: str) -> Dict[str, Any]:
         result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .select("*")
             .eq("org_id", org_id)
             .eq("id", request_id)
@@ -583,7 +583,7 @@ class SyncXmlPilotService:
         if self._is_staging_safety_mode():
             blocked = self._block_real_write_reason("update_access_request")
             return {**data, **blocked}
-        result = supabase_service.client.table("access_requests").update(data).eq("id", request_id).execute()
+        result = neon_service.client.table("access_requests").update(data).eq("id", request_id).execute()
         return result.data[0] if result.data else data
 
     def _merge_metadata(self, record: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:

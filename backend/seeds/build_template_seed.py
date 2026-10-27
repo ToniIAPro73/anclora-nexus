@@ -160,6 +160,8 @@ def build_sql(records: list[dict]) -> str:
 
         # Upsert a template version for each language variant
         for variant in sorted(variants, key=lambda v: v["language"]):
+            storage_path = f"templates/{variant['language']}/{variant['file'].name}"
+            initial_seed_summary = f"Initial seed — {variant['version']}"
             lines += [
                 "INSERT INTO document_template_versions (",
                 "  template_id, version_number, language, content_md5,",
@@ -171,11 +173,11 @@ def build_sql(records: list[dict]) -> str:
                 f"  1,",
                 f"  {sql_str(variant['language'])},",
                 f"  {sql_str(variant['content_hash'])},",
-                f"  {sql_str(f'templates/{variant[\"language\"]}/{variant[\"file\"].name}')},",
+                f"  {sql_str(storage_path)},",
                 f"  {sql_array(variant['placeholders'])},",
                 f"  {sql_array(variant['ape_codes'])},",
                 "  'pending',",
-                f"  {sql_str(f'Initial seed — {variant[\"version\"]}')},",
+                f"  {sql_str(initial_seed_summary)},",
                 f"  {str(variant['is_canonical']).upper()},",
                 f"  '{now}', '{now}'",
                 f"FROM document_templates WHERE template_key = {sql_str(key)}",

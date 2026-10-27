@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isAncloraIdentityEnabled, getAncloraIdentityConfig } from '@/lib/anclora-identity/env'
+import { getAncloraIdentityConfig } from '@/lib/anclora-identity/env'
 import { hasNexusApplicationAccess, type AncloraIdentityClaims } from '@/lib/anclora-identity/authorization'
 import { authorizationCodeGrant, fetchUserInfo, getAncloraIdentityOidcConfig } from '@/lib/anclora-identity/oidcClient'
 import { consumeOidcState, createNexusIdentitySession } from '@/lib/anclora-identity/session'
@@ -8,7 +8,6 @@ import { createNeonDataClient } from '@/lib/neon-data-server'
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
-  if (!isAncloraIdentityEnabled()) return NextResponse.json({ error: 'ANCLORA_IDENTITY_DISABLED' }, { status: 404 })
   const stateCookie = await consumeOidcState()
   if (!stateCookie) return NextResponse.json({ error: 'INVALID_OIDC_STATE' }, { status: 400 })
 

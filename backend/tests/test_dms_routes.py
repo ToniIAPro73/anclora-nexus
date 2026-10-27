@@ -4,15 +4,15 @@ import os
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("DOCUSEAL_WEBHOOK_SECRET", "docuseal-secret")
 os.environ.setdefault("NEXUS_DOCUMENT_ENCRYPTION_KEY", "00" * 32)
 
 from backend.api.deps import get_current_user, get_org_id
+from backend.api.routes import dms as router_module
 from backend.api.routes.dms import require_dms_membership, router
 
 
@@ -108,7 +108,7 @@ class StorageStub:
         return StorageBucketStub(self.storage)
 
 
-class SupabaseClientStub:
+class NeonClientStub:
     def __init__(self):
         self.tables = {
             "real_estate_deal_folders": [],
@@ -137,12 +137,28 @@ class SupabaseClientStub:
         return QueryBuilder(self.tables.setdefault(name, []))
 
 
-def install_stub(monkeypatch, stub: SupabaseClientStub) -> SupabaseClientStub:
-    monkeypatch.setattr("backend.api.routes.dms.supabase_service.client", stub)
+@pytest.fixture(autouse=True)
+def stub_blob_storage(monkeypatch):
+    """Keep DMS route tests isolated from live Vercel Blob credentials."""
+    def put(path, payload, **_kwargs):
+        client_stub = router_module.neon_service.client
+        client_stub.storage_data[path] = {"payload": payload, "options": {}}
+        return path
+
+    def get(path, **_kwargs):
+        client_stub = router_module.neon_service.client
+        return client_stub.storage_data[path]["payload"]
+
+    monkeypatch.setattr(router_module, "put_private_blob", put)
+    monkeypatch.setattr(router_module, "get_private_blob", get)
+
+
+def install_stub(monkeypatch, stub: NeonClientStub) -> NeonClientStub:
+    monkeypatch.setattr("backend.api.routes.dms.neon_service.client", stub)
     return stub
 
 
-def add_folder(stub: SupabaseClientStub, org_id: str = ORG_ID) -> str:
+def add_folder(stub: NeonClientStub, org_id: str = ORG_ID) -> str:
     folder_id = str(uuid4())
     stub.tables["real_estate_deal_folders"].append({
         "id": folder_id,
@@ -152,7 +168,7 @@ def add_folder(stub: SupabaseClientStub, org_id: str = ORG_ID) -> str:
     return folder_id
 
 
-def add_document(stub: SupabaseClientStub, folder_id: str, status: str = "pending") -> dict:
+def add_document(stub: NeonClientStub, folder_id: str, status: str = "pending") -> dict:
     from backend.services.document_encryption_service import DocumentEncryptionService
 
     content = b"Contrato de compraventa con clausulas de firma."
@@ -179,7 +195,7 @@ def add_document(stub: SupabaseClientStub, folder_id: str, status: str = "pendin
 
 
 def test_create_folder_returns_uuid(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     lead_id = str(uuid4())
     stub.tables["leads"].append({"id": lead_id, "org_id": ORG_ID, "full_name": "Cliente"})
 
@@ -199,7 +215,7 @@ def test_create_folder_returns_uuid(monkeypatch) -> None:
 
 
 def test_create_folder_requires_primary_client(monkeypatch) -> None:
-    install_stub(monkeypatch, SupabaseClientStub())
+    install_stub(monkeypatch, NeonClientStub())
 
     response = client.post(
         "/api/dms/folders",
@@ -215,7 +231,7 @@ def test_create_folder_requires_primary_client(monkeypatch) -> None:
 
 
 def test_create_folder_without_permissions_rejected(monkeypatch) -> None:
-    install_stub(monkeypatch, SupabaseClientStub())
+    install_stub(monkeypatch, NeonClientStub())
 
     async def forbidden_membership():
         raise HTTPException(status_code=403, detail="forbidden")
@@ -232,7 +248,7 @@ def test_create_folder_without_permissions_rejected(monkeypatch) -> None:
 
 
 def test_upload_encrypts_document(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     original = b"%PDF-1.4 confidential"
 
@@ -250,7 +266,7 @@ def test_upload_encrypts_document(monkeypatch) -> None:
 
 
 def test_upload_rejects_unsupported_mime(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
 
     response = client.post(
@@ -263,7 +279,7 @@ def test_upload_rejects_unsupported_mime(monkeypatch) -> None:
 
 
 def test_upload_rejects_oversized_file(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     monkeypatch.setenv("NEXUS_DMS_MAX_UPLOAD_BYTES", "4")
 
@@ -278,7 +294,7 @@ def test_upload_rejects_oversized_file(monkeypatch) -> None:
 
 
 def test_upload_rejects_folder_from_other_org(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub, OTHER_ORG_ID)
 
     response = client.post(
@@ -291,7 +307,7 @@ def test_upload_rejects_folder_from_other_org(monkeypatch) -> None:
 
 
 def test_download_rejects_user_without_permissions(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id)
 
@@ -307,7 +323,7 @@ def test_download_rejects_user_without_permissions(monkeypatch) -> None:
 
 
 def test_validate_calls_advisor_ai_mock(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id)
     calls = []
@@ -340,7 +356,7 @@ def test_validate_calls_advisor_ai_mock(monkeypatch) -> None:
 
 
 def test_block_signing_updates_compliance_rejected(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id)
 
@@ -370,7 +386,7 @@ def test_block_signing_updates_compliance_rejected(monkeypatch) -> None:
 
 
 def test_rejected_document_cannot_be_sent_to_signature(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id, status="rejected")
 
@@ -402,7 +418,7 @@ def test_docuseal_webhook_invalid_hmac_returns_401() -> None:
 
 
 def test_docuseal_webhook_valid_hmac_updates_signed(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id)
     stub.tables["document_signature_flows"].append({
@@ -437,7 +453,7 @@ def test_docuseal_webhook_valid_hmac_updates_signed(monkeypatch) -> None:
 
 
 def test_generate_document_requires_operation_parties(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     stub.tables["real_estate_deal_folders"][0]["client_lead_id"] = str(uuid4())
     template_id = str(uuid4())
@@ -468,7 +484,7 @@ def test_generate_document_requires_operation_parties(monkeypatch) -> None:
 
 
 def test_available_templates_filter_by_operation_and_language(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     allowed_template_id = str(uuid4())
     nda_template_id = str(uuid4())
@@ -542,7 +558,7 @@ def test_available_templates_filter_by_operation_and_language(monkeypatch) -> No
 
 
 def test_preview_missing_fields_reports_generation_prerequisites(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     stub.tables["real_estate_deal_folders"][0]["client_lead_id"] = str(uuid4())
     template_id = str(uuid4())
@@ -576,7 +592,7 @@ def test_preview_missing_fields_reports_generation_prerequisites(monkeypatch) ->
 
 
 def test_generate_document_resolves_party_variables(monkeypatch) -> None:
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     template_id = str(uuid4())
     version_id = str(uuid4())

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.deps import get_org_id
 from backend.services.lead_outreach_service import lead_outreach_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 router = APIRouter()
 
@@ -13,7 +13,7 @@ router = APIRouter()
 async def generate_lead_outreach(lead_id: str, org_id: str = Depends(get_org_id)):
     try:
         return await lead_outreach_service.generate_lead_outreach(
-            db=supabase_service,
+            db=neon_service,
             org_id=org_id,
             lead_id=lead_id,
         )
@@ -27,7 +27,7 @@ async def generate_lead_outreach(lead_id: str, org_id: str = Depends(get_org_id)
 async def list_lead_interactions(lead_id: str, org_id: str = Depends(get_org_id)):
     try:
         return await lead_outreach_service.get_interactions(
-            db=supabase_service,
+            db=neon_service,
             org_id=org_id,
             lead_id=lead_id,
             limit=50,
@@ -44,7 +44,7 @@ async def send_lead_supervised_email(
 ):
     try:
         return await lead_outreach_service.build_supervised_send_payload(
-            db=supabase_service,
+            db=neon_service,
             org_id=org_id,
             lead_id=lead_id,
             transport=str((payload or {}).get("transport") or "auto"),
@@ -59,7 +59,7 @@ async def send_lead_supervised_email(
 async def confirm_lead_supervised_send(lead_id: str, interaction_id: str, org_id: str = Depends(get_org_id)):
     try:
         payload = await lead_outreach_service.confirm_supervised_send(
-            db=supabase_service,
+            db=neon_service,
             org_id=org_id,
             lead_id=lead_id,
             interaction_id=interaction_id,

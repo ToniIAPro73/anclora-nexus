@@ -19,7 +19,7 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from supabase import create_client
+from backend.services.neon_service import neon_service
 
 
 SEEDS_DIR = Path(__file__).resolve().parent
@@ -119,12 +119,7 @@ def upsert_version(client: Any, template_id: str, payload: dict[str, Any], dry_r
 
 def seed(org_id: str, dry_run: bool) -> int:
     load_dotenv(REPO_ROOT / ".env")
-    client = create_client(
-        env("SUPABASE_URL"),
-        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        or os.environ.get("SUPABASE_SERVICE_KEY")
-        or env("SUPABASE_ANON_KEY"),
-    )
+    client = neon_service.client
     families = load_manifest()
     count = 0
 

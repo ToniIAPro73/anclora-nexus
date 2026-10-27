@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Literal
 
 from backend.services.llm_service import LLMService
-from backend.services.supabase_service import SupabaseService
+
 from pydantic import BaseModel, Field, EmailStr, ValidationError
 
 # --- Versioning ---
@@ -90,7 +90,7 @@ async def _call_llm_with_retry(func, *args, attempts: int = 3, **kwargs) -> Any:
     raise last_error
 
 # --- Core Skill ---
-async def run_lead_intake(data: Dict[str, Any], llm: LLMService, db: SupabaseService) -> Dict[str, Any]:
+async def run_lead_intake(data: Dict[str, Any], llm: LLMService, db: Any) -> Dict[str, Any]:
     """
     Skill for processing new real estate leads.
     
@@ -103,7 +103,7 @@ async def run_lead_intake(data: Dict[str, Any], llm: LLMService, db: SupabaseSer
     Args:
         data: Raw lead dictionary.
         llm: Injected LLM service.
-        db: Injected Supabase service.
+        db: Injected database service.
 
     Returns:
         A dictionary matching LeadOutput schema.

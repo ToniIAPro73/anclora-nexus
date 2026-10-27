@@ -24,26 +24,26 @@ async def planner_node(state: AgentState) -> AgentState:
 
 async def limit_check_node(state: AgentState) -> AgentState:
     print("--- LIMIT CHECK ---")
-    from backend.services.supabase_service import supabase_service
-    
-    org_id = state.get("org_id", supabase_service.fixed_org_id)
-    limits = await supabase_service.get_constitutional_limits(org_id)
-    
+    from backend.services.neon_service import neon_service
+
+    org_id = state.get("org_id", neon_service.fixed_org_id)
+    limits = await neon_service.get_constitutional_limits(org_id)
+
     state["limits_ok"] = True
-    
+
     # 1. Check max_daily_leads
     if "max_daily_leads" in limits:
-        daily_leads = await supabase_service.count_daily_leads(org_id)
+        daily_leads = await neon_service.count_daily_leads(org_id)
         if daily_leads >= limits["max_daily_leads"]:
             state["limits_ok"] = False
             state["status"] = "blocked"
             state["limit_violation"] = "max_daily_leads"
             state["error"] = f"Constitutional limit reached: max_daily_leads ({limits['max_daily_leads']})"
             print(f"LIMIT BLOCKED: {state['error']}")
-            
+
     # 2. Check max_llm_tokens_per_day
     if state["limits_ok"] and "max_llm_tokens_per_day" in limits:
-        daily_tokens = await supabase_service.get_daily_token_usage(org_id)
+        daily_tokens = await neon_service.get_daily_token_usage(org_id)
         if daily_tokens >= limits["max_llm_tokens_per_day"]:
             state["limits_ok"] = False
             state["status"] = "blocked"
@@ -53,7 +53,7 @@ async def limit_check_node(state: AgentState) -> AgentState:
 
     if not state["limits_ok"]:
         # Log rejection to audit_log
-        await supabase_service.insert_audit_log({
+        await neon_service.insert_audit_log({
             "org_id": org_id,
             "actor_type": "system",
             "actor_id": "constitutional_validator",
@@ -68,12 +68,12 @@ async def executor_node(state: AgentState) -> AgentState:
     print("--- EXECUTOR ---")
     from sdd.features.intelligence.skills.lead_intake import run_lead_intake
     from backend.services.llm_service import llm_service
-    from backend.services.supabase_service import supabase_service
-    
+    from backend.services.neon_service import neon_service
+
     if state["selected_skill"] == "lead_intake":
         from sdd.features.intelligence.skills.lead_intake import run_lead_intake
         try:
-            output = await run_lead_intake(state["input_data"], llm_service, supabase_service)
+            output = await run_lead_intake(state["input_data"], llm_service, neon_service)
             state["skill_output"] = output
         except Exception as e:
             state["error"] = str(e)
@@ -81,7 +81,7 @@ async def executor_node(state: AgentState) -> AgentState:
     elif state["selected_skill"] == "prospection_weekly":
         from sdd.features.intelligence.skills.prospection_weekly import run_prospection_weekly
         try:
-            output = await run_prospection_weekly(state["input_data"], llm_service, supabase_service)
+            output = await run_prospection_weekly(state["input_data"], llm_service, neon_service)
             state["skill_output"] = output
         except Exception as e:
             state["error"] = str(e)
@@ -89,25 +89,25 @@ async def executor_node(state: AgentState) -> AgentState:
     elif state["selected_skill"] == "recap_weekly":
         from sdd.features.intelligence.skills.recap_weekly import run_recap_weekly
         try:
-            output = await run_recap_weekly(state["input_data"], llm_service, supabase_service)
+            output = await run_recap_weekly(state["input_data"], llm_service, neon_service)
             state["skill_output"] = output
         except Exception as e:
             state["error"] = str(e)
             state["status"] = "error"
-            
+
     return state
 
 async def result_handler_node(state: AgentState) -> AgentState:
     print("--- RESULT HANDLER ---")
-    from backend.services.supabase_service import supabase_service
-    
+    from backend.services.neon_service import neon_service
+
     if state.get("skill_output") and state["selected_skill"] == "lead_intake":
         output = state["skill_output"]
-        org_id = state.get("org_id", state["input_data"].get("org_id", supabase_service.fixed_org_id))
+        org_id = state.get("org_id", state["input_data"].get("org_id", neon_service.fixed_org_id))
         assignee_user_id = None
         assignee_role = None
         assignee_reason = None
-        
+
         # 1. Update or Insert Lead
         lead_id = state["input_data"].get("lead_id")
         lead_data = {
@@ -120,30 +120,30 @@ async def result_handler_node(state: AgentState) -> AgentState:
             "processed_at": output["processed_at"],
             "status": "new"
         }
-        
+
         if lead_id:
-            await supabase_service.update_lead(lead_id, lead_data)
+            await neon_service.update_lead(lead_id, lead_data)
         else:
-            assignee = await supabase_service.pick_lead_assignee(org_id)
+            assignee = await neon_service.pick_lead_assignee(org_id)
             assignee_user_id = assignee.get("user_id")
             assignee_role = assignee.get("role")
             assignee_reason = assignee.get("reason")
 
             # Insert new lead with input data + AI output
             input_data = state["input_data"]
-            
+
             # Origin Mapping & Legacy Compatibility (ANCLORA-LSO-001)
             source_legacy = input_data.get("source", "manual")
             source_system = input_data.get("source_system")
             source_channel = input_data.get("source_channel")
-            
+
             # Minimal legacy fallback if new fields are missing
             if not source_system:
                 if "web" in source_legacy.lower():
                     source_system = "cta_web"
                 else:
                     source_system = "manual"
-            
+
             if not source_channel:
                 if "linkedin" in source_legacy.lower():
                     source_channel = "linkedin"
@@ -178,7 +178,7 @@ async def result_handler_node(state: AgentState) -> AgentState:
                 "notes": normalized_notes,
                 **lead_data
             }
-            new_lead = await supabase_service.insert_lead(full_lead_data)
+            new_lead = await neon_service.insert_lead(full_lead_data)
             lead_id = new_lead.get("id")
             if not lead_id:
                 raise ValueError("Lead intake persistence completed without returning a lead id")
@@ -191,7 +191,7 @@ async def result_handler_node(state: AgentState) -> AgentState:
                     "reason": assignee_reason,
                     "assigned_at": datetime.utcnow().isoformat(),
                 }
-                await supabase_service.update_lead(lead_id, {"notes": lead_notes})
+                await neon_service.update_lead(lead_id, {"notes": lead_notes})
             
         # 2. Create Task
         assignment_hint = (
@@ -199,7 +199,7 @@ async def result_handler_node(state: AgentState) -> AgentState:
             if assignee_user_id
             else ""
         )
-        await supabase_service.insert_task({
+        await neon_service.insert_task({
             "org_id": org_id,
             "title": f"Follow-up: {state['input_data'].get('name')}",
             "description": f"Prioridad {output['ai_priority']}/5. Acción: {output['next_action']}. Resumen: {output['ai_summary']}.{assignment_hint}",
@@ -212,7 +212,7 @@ async def result_handler_node(state: AgentState) -> AgentState:
 
         source_system = (state["input_data"].get("source_system") or "").lower()
         if source_system == "cta_web":
-            await supabase_service.insert_task({
+            await neon_service.insert_task({
                 "org_id": org_id,
                 "title": f"Aviso contacto web: {state['input_data'].get('name')}",
                 "description": (
@@ -237,20 +237,20 @@ async def result_handler_node(state: AgentState) -> AgentState:
     elif state.get("skill_output") and state["selected_skill"] == "prospection_weekly":
         output = state["skill_output"]
         org_id = state.get("org_id", state["input_data"].get("org_id"))
-        
+
         if output.get("status") == "skipped":
             state["final_result"] = output
             return state
 
         # 1. Update Property Matchings
         for match in output.get("matchings", []):
-            await supabase_service.update_property_matching(match["property_id"], {
+            await neon_service.update_property_matching(match["property_id"], {
                 "prospection_score": match["score"],
                 "notes": {"matching_reason": match["reason"]}
             })
-            
+
         # 2. Create Weekly Recap entry
-        await supabase_service.insert_weekly_recap({
+        await neon_service.insert_weekly_recap({
             "org_id": org_id,
             "week_start": datetime.utcnow().date().isoformat(), # Simplified
             "week_end": datetime.utcnow().date().isoformat(),
@@ -261,9 +261,9 @@ async def result_handler_node(state: AgentState) -> AgentState:
             },
             "insights": output["luxury_summary"]
         })
-        
+
         # 3. Insert into agent_executions
-        await supabase_service.insert_agent_execution({
+        await neon_service.insert_agent_execution({
             "org_id": org_id,
             "skill_id": state.get("agent_id"), # Assuming agent_id is in state
             "status": "COMPLETED",
@@ -278,9 +278,9 @@ async def result_handler_node(state: AgentState) -> AgentState:
     elif state.get("skill_output") and state["selected_skill"] == "recap_weekly":
         output = state["skill_output"]
         org_id = state.get("org_id", state["input_data"].get("org_id"))
-        
+
         # 1. Insert Weekly Recap
-        await supabase_service.insert_weekly_recap({
+        await neon_service.insert_weekly_recap({
             "org_id": org_id,
             "week_start": output["week_start"],
             "week_end": output["week_end"],
@@ -288,9 +288,9 @@ async def result_handler_node(state: AgentState) -> AgentState:
             "insights": output["luxury_summary"],
             "top_actions": {"action": output["top_action"]}
         })
-        
+
         # 2. Insert into agent_executions
-        await supabase_service.insert_agent_execution({
+        await neon_service.insert_agent_execution({
             "org_id": org_id,
             "skill_id": state.get("agent_id"),
             "status": "COMPLETED",
@@ -300,16 +300,16 @@ async def result_handler_node(state: AgentState) -> AgentState:
             "execution_time_ms": 0,
             "completed_at": datetime.utcnow().isoformat()
         })
-        
+
         state["final_result"] = output
     return state
 
 async def audit_logger_node(state: AgentState) -> AgentState:
     print("--- AUDIT LOGGER ---")
-    from backend.services.supabase_service import supabase_service
-    
-    org_id = state.get("org_id", state["input_data"].get("org_id", supabase_service.fixed_org_id))
-    
+    from backend.services.neon_service import neon_service
+
+    org_id = state.get("org_id", state["input_data"].get("org_id", neon_service.fixed_org_id))
+
     # Audit Log Entry (Constitutional Compliance Título X)
     audit_data = {
         "org_id": org_id,
@@ -324,8 +324,8 @@ async def audit_logger_node(state: AgentState) -> AgentState:
             "status": state.get("status", "success")
         }
     }
-    await supabase_service.insert_audit_log(audit_data)
-    
+    await neon_service.insert_audit_log(audit_data)
+
     # Agent Execution Log
     agent_log_data = {
         "org_id": org_id,
@@ -337,8 +337,8 @@ async def audit_logger_node(state: AgentState) -> AgentState:
         "tokens_used": state.get("skill_output", {}).get("tokens_used", 0),
         "status": "success" if not state.get("error") else "error"
     }
-    await supabase_service.insert_agent_log(agent_log_data)
-    
+    await neon_service.insert_agent_log(agent_log_data)
+
     state["audit_logged"] = True
     return state
 

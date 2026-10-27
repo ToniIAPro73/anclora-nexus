@@ -14,7 +14,7 @@ from backend.api.deps import get_current_user
 from backend.services.finops import finops_service
 from backend.services.org_context_service import resolve_legacy_org_id_http
 from backend.services.llm_service import llm_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.skills.fsbo_scraper import run_fsbo_scraper
 from backend.skills.notebooklm_sync import run_notebooklm_sync
 from backend.skills.prospection_weekly import run_prospection_weekly
@@ -32,7 +32,7 @@ async def _resolve_org_id(
     x_cron_secret: Optional[str],
     requested_org_id: Optional[str],
 ) -> str:
-    # Internal cron path: shared secret instead of Supabase JWT
+    # Internal cron path: shared secret instead of Neon JWT
     if settings.CRON_SECRET and x_cron_secret == settings.CRON_SECRET:
         return resolve_legacy_org_id_http(requested_org_id, "skills-run-cron")
 
@@ -42,7 +42,7 @@ async def _resolve_org_id(
     try:
         user = await get_current_user(authorization)
         response = (
-            supabase_service.client.table("user_profiles")
+            neon_service.client.table("user_profiles")
             .select("org_id")
             .eq("id", user.id)
             .single()
@@ -97,7 +97,7 @@ async def run_skill(
         raise HTTPException(status_code=404, detail=f"Unsupported skill: {skill_name}")
 
     try:
-        return await runner(merged_data, llm_service, supabase_service)
+        return await runner(merged_data, llm_service, neon_service)
     except HTTPException:
         raise
     except Exception as exc:

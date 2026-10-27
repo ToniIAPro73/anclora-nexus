@@ -19,7 +19,7 @@ from backend.services.automation_service import automation_service
 from backend.services.cloud_ops_service import get_cloud_ops_summary
 from backend.services.finops import finops_service
 from backend.services.source_observatory_service import source_observatory_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.territorial_sync_service import (
     get_territorial_pipeline_status,
     get_territorial_sync_status,
@@ -28,7 +28,7 @@ from backend.services.territorial_sync_service import (
 
 class CommandCenterService:
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     def _table_exists(self, table: str) -> bool:
         try:

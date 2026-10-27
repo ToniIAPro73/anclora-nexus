@@ -13,7 +13,7 @@ router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 @router.post("/leads", response_model=Dict[str, Any])
 async def ingest_lead(payload: LeadIngestionPayload):
     """
-    Ingest a lead into the system. 
+    Ingest a lead into the system.
     Idempotent based on org_id, source_system, and external_id.
     """
     try:

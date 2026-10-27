@@ -4,9 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { OrgProvider, useOrg } from '@/lib/contexts/OrgContext'
 import { useOrgMembership } from '@/lib/hooks/useOrgMembership'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 
-vi.mock('@/lib/supabase', () => ({
+vi.mock('@/lib/neon-data-client', () => ({
   default: {
     auth: {
       getUser: vi.fn(),
@@ -47,8 +47,8 @@ describe('OrgContext & useOrgMembership', () => {
   })
 
   it('provides membership data when user has an active membership', async () => {
-    ;(supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
-    ;(supabase.from as any)().single.mockResolvedValue({
+    ;(database.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
+    ;(database.from as any)().single.mockResolvedValue({
       data: { id: 'm1', role: 'owner', status: 'active' },
       error: null
     })
@@ -66,8 +66,8 @@ describe('OrgContext & useOrgMembership', () => {
   })
 
   it('sets membership to null if no organization found', async () => {
-    ;(supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
-    ;(supabase.from as any)().single.mockResolvedValue({
+    ;(database.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
+    ;(database.from as any)().single.mockResolvedValue({
       data: null,
       error: { code: 'PGRST116', message: 'Not found' }
     })
@@ -84,8 +84,8 @@ describe('OrgContext & useOrgMembership', () => {
   })
 
   it('useOrgMembership returns correct permission flags', async () => {
-    ;(supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
-    ;(supabase.from as any)().single.mockResolvedValue({
+    ;(database.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
+    ;(database.from as any)().single.mockResolvedValue({
       data: { id: 'm1', role: 'owner', status: 'active' },
       error: null
     })
@@ -106,8 +106,8 @@ describe('OrgContext & useOrgMembership', () => {
   })
 
   it('useOrgMembership returns restricted flags for Agent', async () => {
-    ;(supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
-    ;(supabase.from as any)().single.mockResolvedValue({
+    ;(database.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } })
+    ;(database.from as any)().single.mockResolvedValue({
       data: { id: 'm1', role: 'agent', status: 'active' },
       error: null
     })

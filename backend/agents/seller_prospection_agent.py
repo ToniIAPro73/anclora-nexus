@@ -193,8 +193,8 @@ async def extract_lead_data(state: SellerProspectionState) -> SellerProspectionS
             org_id,
         ))
         try:
-            from backend.services.supabase_service import supabase_service
-            supabase_service.client.table("automation_alerts").insert({
+            from backend.services.neon_service import neon_service
+            neon_service.client.table("automation_alerts").insert({
                 "org_id": org_id,
                 "alert_scope": "rule",
                 "severity": "warning",
@@ -294,11 +294,11 @@ async def check_limits(state: SellerProspectionState) -> SellerProspectionState:
     new_state["limit_violation"] = None
 
     try:
-        from backend.services.supabase_service import supabase_service
-        limits = await supabase_service.get_constitutional_limits(org_id)
+        from backend.services.neon_service import neon_service
+        limits = await neon_service.get_constitutional_limits(org_id)
 
         if "max_daily_leads" in limits:
-            daily_leads = await supabase_service.count_daily_leads(org_id)
+            daily_leads = await neon_service.count_daily_leads(org_id)
             if daily_leads >= limits["max_daily_leads"]:
                 new_state["can_proceed"] = False
                 new_state["limit_violation"] = "max_daily_leads"
@@ -308,7 +308,7 @@ async def check_limits(state: SellerProspectionState) -> SellerProspectionState:
                 )
 
         if new_state["can_proceed"] and "max_llm_tokens_per_day" in limits:
-            daily_tokens = await supabase_service.get_daily_token_usage(org_id)
+            daily_tokens = await neon_service.get_daily_token_usage(org_id)
             if daily_tokens >= limits["max_llm_tokens_per_day"]:
                 new_state["can_proceed"] = False
                 new_state["limit_violation"] = "max_llm_tokens_per_day"
@@ -323,14 +323,14 @@ async def check_limits(state: SellerProspectionState) -> SellerProspectionState:
         ]
 
     try:
-        from backend.services.supabase_service import supabase_service
-        limits_data = await supabase_service.get_constitutional_limits(org_id)
-        daily_leads_count = await supabase_service.count_daily_leads(org_id)
+        from backend.services.neon_service import neon_service
+        limits_data = await neon_service.get_constitutional_limits(org_id)
+        daily_leads_count = await neon_service.count_daily_leads(org_id)
         max_leads = limits_data.get("max_daily_leads", 50)
 
         # 90% warning alert
         if new_state["can_proceed"] and daily_leads_count >= max_leads * 0.9:
-            supabase_service.client.table("automation_alerts").upsert({
+            neon_service.client.table("automation_alerts").upsert({
                 "org_id": org_id,
                 "alert_scope": "rule",
                 "severity": "warning",
@@ -342,7 +342,7 @@ async def check_limits(state: SellerProspectionState) -> SellerProspectionState:
 
         # Critical alert if blocked
         if not new_state["can_proceed"]:
-            supabase_service.client.table("automation_alerts").upsert({
+            neon_service.client.table("automation_alerts").upsert({
                 "org_id": org_id,
                 "alert_scope": "rule",
                 "severity": "critical",
@@ -352,7 +352,7 @@ async def check_limits(state: SellerProspectionState) -> SellerProspectionState:
                 "is_active": True,
             }, on_conflict="org_id,dedupe_key").execute()
 
-            await supabase_service.insert_audit_log({
+            await neon_service.insert_audit_log({
                 "org_id": org_id,
                 "actor_type": "system",
                 "actor_id": "seller_prospection_agent",
@@ -469,7 +469,7 @@ async def create_approval_task(state: SellerProspectionState) -> SellerProspecti
     new_state = dict(state)
 
     try:
-        from backend.services.supabase_service import supabase_service
+        from backend.services.neon_service import neon_service
         from backend.models.sellers import NexusSellerCreate, ZonaEnum, FuenteEnum, EstadoContactoEnum
 
         # Persist seller if not already created by intake endpoint
@@ -496,7 +496,7 @@ async def create_approval_task(state: SellerProspectionState) -> SellerProspecti
                 "intake_raw_data": state.get("raw_data") or {},
                 "intake_processed_at": datetime.now(timezone.utc).isoformat(),
             }
-            result = supabase_service.client.table("nexus_sellers").insert(seller_payload).execute()
+            result = neon_service.client.table("nexus_sellers").insert(seller_payload).execute()
             seller_id = (result.data[0] if result.data else {}).get("id")
             new_state["seller_id"] = seller_id
 
@@ -509,14 +509,14 @@ async def create_approval_task(state: SellerProspectionState) -> SellerProspecti
             "status": "draft",
             "priority_tier": state.get("priority_tier"),
         }
-        draft_result = supabase_service.client.table("seller_outreach_drafts").insert(draft_payload).execute()
+        draft_result = neon_service.client.table("seller_outreach_drafts").insert(draft_payload).execute()
         draft_id = (draft_result.data[0] if draft_result.data else {}).get("id")
         new_state["draft_id"] = draft_id
         new_state["approval_status"] = "draft"
 
         # Notify for priority 5 (whale)
         if state.get("priority_tier") == 5:
-            await supabase_service.insert_audit_log({
+            await neon_service.insert_audit_log({
                 "org_id": org_id,
                 "actor_type": "agent",
                 "actor_id": "seller_prospection_agent",
@@ -560,8 +560,8 @@ async def block_and_alert(state: SellerProspectionState) -> SellerProspectionSta
     """Log hard stop into automation_alerts."""
     org_id = state["org_id"]
     try:
-        from backend.services.supabase_service import supabase_service
-        supabase_service.client.table("automation_alerts").insert({
+        from backend.services.neon_service import neon_service
+        neon_service.client.table("automation_alerts").insert({
             "org_id": org_id,
             "alert_scope": "rule",
             "severity": "critical",
@@ -581,8 +581,8 @@ async def handle_error(state: SellerProspectionState) -> SellerProspectionState:
     org_id = state["org_id"]
     new_state = dict(state)
     try:
-        from backend.services.supabase_service import supabase_service
-        await supabase_service.insert_audit_log({
+        from backend.services.neon_service import neon_service
+        await neon_service.insert_audit_log({
             "org_id": org_id,
             "actor_type": "agent",
             "actor_id": "seller_prospection_agent",

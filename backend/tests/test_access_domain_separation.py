@@ -29,9 +29,9 @@ from backend.api.routes.public import router as public_router
 # ============================================================================
 
 @pytest.fixture
-def mock_supabase_service():
-    """Mock Supabase service for testing."""
-    with patch("backend.services.access_request_service.supabase_service") as mock:
+def mock_neon_service():
+    """Mock Neon service for testing."""
+    with patch("backend.services.access_request_service.neon_service") as mock:
         yield mock
 
 
@@ -43,9 +43,9 @@ def mock_captcha():
 
 
 @pytest.fixture
-def mock_supabase_public():
-    """Mock Supabase service for public API routes (imported locally inside functions)."""
-    with patch("backend.services.supabase_service.supabase_service") as mock:
+def mock_neon_public():
+    """Mock Neon service for public API routes (imported locally inside functions)."""
+    with patch("backend.services.neon_service.neon_service") as mock:
         yield mock
 
 
@@ -120,11 +120,11 @@ def test_access_source_no_uncatalogued_values():
 # ============================================================================
 
 @pytest.mark.anyio
-async def test_list_requests_defaults_to_access_domain(mock_supabase_service):
+async def test_list_requests_defaults_to_access_domain(mock_neon_service):
     """When called without intake_domain, list_requests filters to access_request domain."""
     # Setup
     mock_query = MagicMock()
-    mock_supabase_service.client.table.return_value.select.return_value = mock_query
+    mock_neon_service.client.table.return_value.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.order.return_value = mock_query
     mock_query.limit.return_value = mock_query
@@ -146,11 +146,11 @@ async def test_list_requests_defaults_to_access_domain(mock_supabase_service):
 
 
 @pytest.mark.anyio
-async def test_list_requests_explicit_access_domain(mock_supabase_service):
+async def test_list_requests_explicit_access_domain(mock_neon_service):
     """When intake_domain='access_request' is explicit, filter is applied correctly."""
     # Setup
     mock_query = MagicMock()
-    mock_supabase_service.client.table.return_value.select.return_value = mock_query
+    mock_neon_service.client.table.return_value.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.order.return_value = mock_query
     mock_query.limit.return_value = mock_query
@@ -171,11 +171,11 @@ async def test_list_requests_explicit_access_domain(mock_supabase_service):
 
 
 @pytest.mark.anyio
-async def test_list_requests_respects_intake_domain_parameter(mock_supabase_service):
+async def test_list_requests_respects_intake_domain_parameter(mock_neon_service):
     """Verify that when intake_domain is provided, it's used in the filter."""
     # Setup
     mock_query = MagicMock()
-    mock_supabase_service.client.table.return_value.select.return_value = mock_query
+    mock_neon_service.client.table.return_value.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.order.return_value = mock_query
     mock_query.limit.return_value = mock_query
@@ -200,7 +200,7 @@ async def test_list_requests_respects_intake_domain_parameter(mock_supabase_serv
 # ============================================================================
 
 @pytest.mark.anyio
-async def test_commercial_endpoint_rejects_syncxml_source(public_app, mock_supabase_public):
+async def test_commercial_endpoint_rejects_syncxml_source(public_app, mock_neon_public):
     """POST /api/public/intake/commercial-leads rejects source='syncxml_landing'."""
     async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
         response = await ac.post(
@@ -218,7 +218,7 @@ async def test_commercial_endpoint_rejects_syncxml_source(public_app, mock_supab
 
 
 @pytest.mark.anyio
-async def test_commercial_endpoint_rejects_synergi_source(public_app, mock_supabase_public):
+async def test_commercial_endpoint_rejects_synergi_source(public_app, mock_neon_public):
     """POST /api/public/intake/commercial-leads rejects source='synergi_app'."""
     async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
         response = await ac.post(
@@ -236,7 +236,7 @@ async def test_commercial_endpoint_rejects_synergi_source(public_app, mock_supab
 
 
 @pytest.mark.anyio
-async def test_private_estates_commercial_endpoint_requires_turnstile(public_app, mock_supabase_public):
+async def test_private_estates_commercial_endpoint_requires_turnstile(public_app, mock_neon_public):
     """Private Estates leads fail closed when Turnstile metadata is absent."""
     async with AsyncClient(transport=ASGITransport(app=public_app), base_url="http://test") as ac:
         response = await ac.post(
@@ -250,12 +250,12 @@ async def test_private_estates_commercial_endpoint_requires_turnstile(public_app
 
     assert response.status_code == 400
     assert "turnstile" in response.text.lower()
-    mock_supabase_public.client.table.assert_not_called()
+    mock_neon_public.client.table.assert_not_called()
 
 
 @pytest.mark.anyio
 async def test_private_estates_commercial_endpoint_rejects_invalid_turnstile(
-    public_app, mock_supabase_public, mock_captcha_public
+    public_app, mock_neon_public, mock_captcha_public
 ):
     """A failed Turnstile result prevents commercial lead persistence."""
     mock_captcha_public.verify.return_value = {
@@ -277,12 +277,12 @@ async def test_private_estates_commercial_endpoint_rejects_invalid_turnstile(
         )
 
     assert response.status_code == 400
-    mock_supabase_public.client.table.assert_not_called()
+    mock_neon_public.client.table.assert_not_called()
 
 
 @pytest.mark.anyio
 async def test_private_estates_commercial_endpoint_rejects_verification_error(
-    public_app, mock_supabase_public, mock_captcha_public
+    public_app, mock_neon_public, mock_captcha_public
 ):
     mock_captcha_public.verify.side_effect = CaptchaVerificationError("invalid")
 
@@ -299,7 +299,7 @@ async def test_private_estates_commercial_endpoint_rejects_verification_error(
         )
 
     assert response.status_code == 400
-    mock_supabase_public.client.table.assert_not_called()
+    mock_neon_public.client.table.assert_not_called()
 
 
 @pytest.mark.parametrize("hostname", ["other.anclora.com", None])
@@ -326,11 +326,11 @@ def test_turnstile_rejects_hostname_outside_private_estates_allowlist(hostname):
 
 @pytest.mark.anyio
 async def test_private_estates_commercial_endpoint_persists_verified_metadata(
-    public_app, mock_supabase_public, mock_captcha_public
+    public_app, mock_neon_public, mock_captcha_public
 ):
     """A verified Turnstile result is recorded without persisting the token."""
     mock_query = MagicMock()
-    mock_supabase_public.client.table.return_value = mock_query
+    mock_neon_public.client.table.return_value = mock_query
     mock_query.insert.return_value = mock_query
     mock_query.execute.return_value.data = [{"id": "lead-verified"}]
 
@@ -361,11 +361,11 @@ async def test_private_estates_commercial_endpoint_persists_verified_metadata(
 
 
 @pytest.mark.anyio
-async def test_commercial_endpoint_accepts_private_estates_landing(public_app, mock_supabase_public, mock_captcha_public):
+async def test_commercial_endpoint_accepts_private_estates_landing(public_app, mock_neon_public, mock_captcha_public):
     """POST /api/public/intake/commercial-leads accepts source='private_estates_landing'."""
     # Setup mock to simulate successful insert
     mock_query = MagicMock()
-    mock_supabase_public.client.table.return_value = mock_query
+    mock_neon_public.client.table.return_value = mock_query
     mock_query.insert.return_value = mock_query
     mock_query.execute.return_value.data = [{"id": "lead-123"}]
 
@@ -411,11 +411,11 @@ async def test_commercial_lead_cannot_have_target_product(public_app):
 
 
 @pytest.mark.anyio
-async def test_access_request_requires_intake_domain(mock_supabase_service, mock_captcha):
+async def test_access_request_requires_intake_domain(mock_neon_service, mock_captcha):
     """Access requests created via service have intake_domain='access_request'."""
     # Setup
     mock_captcha.verify.return_value = {"verified": True, "hostname": "test.com", "required": True}
-    mock_supabase_service.client.table.return_value.insert.return_value.execute.return_value.data = [
+    mock_neon_service.client.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "request-1", "status": "pending", "product": "synergi", "email": "test@example.com"}
     ]
 
@@ -436,17 +436,17 @@ async def test_access_request_requires_intake_domain(mock_supabase_service, mock
     await service.create_public_request(data)
 
     # Assert: domain and routing are set
-    args, kwargs = mock_supabase_service.client.table.return_value.insert.call_args
+    args, kwargs = mock_neon_service.client.table.return_value.insert.call_args
     persistence_data = args[0]
     assert persistence_data.get("intake_domain") == "access_request"
     assert persistence_data.get("routing_target_domain") == "access_requests"
 
 
 @pytest.mark.anyio
-async def test_pe_source_can_create_access_request(mock_supabase_service, mock_captcha):
+async def test_pe_source_can_create_access_request(mock_neon_service, mock_captcha):
     """source='private_estates_landing' with intake_domain='access_request' succeeds."""
     mock_captcha.verify.return_value = {"verified": True, "hostname": "test.com", "required": True}
-    mock_supabase_service.client.table.return_value.insert.return_value.execute.return_value.data = [
+    mock_neon_service.client.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "request-pe-1", "status": "pending", "product": "data_lab", "email": "test@example.com"}
     ]
     service = AccessRequestService()
@@ -470,11 +470,11 @@ async def test_pe_source_can_create_access_request(mock_supabase_service, mock_c
 # ============================================================================
 
 @pytest.mark.anyio
-async def test_access_domain_routes_to_access_requests_table(mock_supabase_service, mock_captcha):
+async def test_access_domain_routes_to_access_requests_table(mock_neon_service, mock_captcha):
     """intake_domain='access_request' routes to access_requests table."""
     # Setup
     mock_captcha.verify.return_value = {"verified": True, "hostname": "test.com", "required": True}
-    mock_supabase_service.client.table.return_value.insert.return_value.execute.return_value.data = [
+    mock_neon_service.client.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "request-1", "status": "pending", "product": "synergi", "email": "test@example.com"}
     ]
 
@@ -495,17 +495,17 @@ async def test_access_domain_routes_to_access_requests_table(mock_supabase_servi
     await service.create_public_request(data)
 
     # Assert: table called should be 'access_requests'
-    mock_supabase_service.client.table.assert_called()
-    table_call = mock_supabase_service.client.table.call_args[0][0]
+    mock_neon_service.client.table.assert_called()
+    table_call = mock_neon_service.client.table.call_args[0][0]
     assert table_call == "access_requests"
 
 
 @pytest.mark.anyio
-async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_supabase_public, mock_captcha_public):
+async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_neon_public, mock_captcha_public):
     """intake_domain='commercial_lead' routes to either valuation_requests or leads_pipeline."""
     # Setup mock
     mock_query = MagicMock()
-    mock_supabase_public.client.table.return_value = mock_query
+    mock_neon_public.client.table.return_value = mock_query
     mock_query.insert.return_value = mock_query
     mock_query.execute.return_value.data = [{"id": "lead-123"}]
 
@@ -527,17 +527,17 @@ async def test_commercial_domain_routes_to_leads_or_valuations(public_app, mock_
     result = response.json()
     assert result.get("routing") == "valuation_requests", "Valuation requests should route to valuation_requests table"
     # Verify table() was called with valuation_requests
-    mock_supabase_public.client.table.assert_called()
-    table_calls = [call[0][0] for call in mock_supabase_public.client.table.call_args_list]
+    mock_neon_public.client.table.assert_called()
+    table_calls = [call[0][0] for call in mock_neon_public.client.table.call_args_list]
     assert "valuation_requests" in table_calls
 
 
 @pytest.mark.anyio
-async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(public_app, mock_supabase_public, mock_captcha_public):
+async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(public_app, mock_neon_public, mock_captcha_public):
     """intake_domain='commercial_lead' without seller_valuation_request routes to leads_pipeline."""
     # Setup mock
     mock_query = MagicMock()
-    mock_supabase_public.client.table.return_value = mock_query
+    mock_neon_public.client.table.return_value = mock_query
     mock_query.insert.return_value = mock_query
     mock_query.execute.return_value.data = [{"id": "lead-456"}]
 
@@ -559,6 +559,6 @@ async def test_commercial_domain_routes_to_leads_pipeline_for_generic_request(pu
     result = response.json()
     assert result.get("routing") == "leads_pipeline", "Generic requests should route to leads_pipeline table"
     # Verify table() was called with leads_pipeline
-    mock_supabase_public.client.table.assert_called()
-    table_calls = [call[0][0] for call in mock_supabase_public.client.table.call_args_list]
+    mock_neon_public.client.table.assert_called()
+    table_calls = [call[0][0] for call in mock_neon_public.client.table.call_args_list]
     assert "leads_pipeline" in table_calls

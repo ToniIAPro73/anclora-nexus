@@ -4,11 +4,11 @@ NotebookLM Sync Skill
 This skill is executed by Claude Code (not the production backend) to:
 1. Process territorial intelligence from the NotebookLM RAG notebook
 2. Synthesize it using the LLM
-3. Store structured insights in Supabase for the API to serve
+3. Store structured insights in Neon for the API to serve
 
 Why this architecture: NotebookLM MCP uses browser session (Google auth)
 and is NOT callable from the production FastAPI backend. Claude Code acts
-as the bridge: MCP → NotebookLM → LLM synthesis → Supabase.
+as the bridge: MCP → NotebookLM → LLM synthesis → Neon.
 
 Trigger: Manual by Claude Code or scheduled via cron (weekly, same time as
 prospection_weekly and recap_weekly — Sunday ~19:00 CET).
@@ -24,7 +24,7 @@ from typing import Any, Dict
 
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.services.notebooklm_service import save_insight
 
 TERRITORIAL_ZONES = [
@@ -36,15 +36,15 @@ TERRITORIAL_ZONES = [
 async def run_notebooklm_sync(
     data: Dict[str, Any],
     llm: LLMService,
-    db: SupabaseService,
+    db: NeonService,
 ) -> Dict[str, Any]:
     """
-    Sync territorial intelligence from NotebookLM to Supabase.
+    Sync territorial intelligence from NotebookLM to Neon.
 
     NOTE: This skill expects that Claude Code has already queried NotebookLM
     via MCP and passed the raw response in `data['notebooklm_response']`.
     This skill then uses the LLM to structure and classify the response,
-    and saves it to Supabase.
+    and saves it to Neon.
 
     Args:
         data: Dict containing:
@@ -54,7 +54,7 @@ async def run_notebooklm_sync(
             - zona (str, optional): Geographic zone
             - org_id (str, optional): Override org_id
         llm: LLMService instance
-        db: SupabaseService instance
+        db: NeonService instance
 
     Returns:
         Dict with sync results
@@ -115,7 +115,7 @@ Responde ÚNICAMENTE con el JSON válido.
         print(f"[notebooklm_sync] Warning: Could not parse structured output: {e}")
         structured = {"resumen": raw_response[:500]}
 
-    # Save to Supabase
+    # Save to Neon
     try:
         saved = await save_insight(
             db=db,

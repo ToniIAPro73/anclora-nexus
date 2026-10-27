@@ -100,7 +100,7 @@ def test_list_partner_network_aggregates_buyers(monkeypatch) -> None:
             }
         ],
     }
-    monkeypatch.setattr("backend.services.partner_network_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_network_service.neon_service.client", _MockClient(store))
     monkeypatch.setattr(
         "backend.services.partner_network_service.partner_workspace_service._build_launch_url",
         lambda token: f"https://anclora.local/private-area/partner/workspace?token={token}",
@@ -125,7 +125,7 @@ def test_update_partner_network(monkeypatch) -> None:
             {"id": "ws-1", "org_id": "org-1", "partner_tier": "approved", "relationship_status": "active", "trust_score": 70}
         ]
     }
-    monkeypatch.setattr("backend.services.partner_network_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_network_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(
         service.update_network_partner(
@@ -155,7 +155,7 @@ def test_share_opportunity_with_partner(monkeypatch) -> None:
         "synergi_partner_shared_opportunities": [],
         "synergi_partner_activity": [],
     }
-    monkeypatch.setattr("backend.services.partner_network_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_network_service.neon_service.client", _MockClient(store))
 
     result = asyncio.run(
         service.share_opportunity_with_partner(
@@ -212,7 +212,7 @@ def test_list_partner_network_filters_by_preference_and_response(monkeypatch) ->
         ],
         "buyer_profiles": [],
     }
-    monkeypatch.setattr("backend.services.partner_network_service.supabase_service.client", _MockClient(store))
+    monkeypatch.setattr("backend.services.partner_network_service.neon_service.client", _MockClient(store))
     monkeypatch.setattr(
         "backend.services.partner_network_service.partner_workspace_service._build_launch_url",
         lambda token: f"https://anclora.local/private-area/partner/workspace?token={token}",

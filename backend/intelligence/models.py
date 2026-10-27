@@ -1,6 +1,6 @@
 """
 Anclora Intelligence v1 — SQLAlchemy Models
-Database models for Supabase PostgreSQL
+Database models for Neon PostgreSQL
 """
 
 from sqlalchemy import (
@@ -157,7 +157,7 @@ class IntelligenceAuditLog(Base):
 class DatabaseConfig:
     """Configuration for database connections."""
     
-    # Supabase local connection (from docker-compose)
+    # Neon local connection (from docker-compose)
     SQLALCHEMY_URL = "postgresql://postgres:postgres@localhost:5432/postgres"
     
     # Production would use:

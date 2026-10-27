@@ -1,6 +1,6 @@
 -- Run after Neon Data API provisioning and role setup on the isolated branch.
--- Supabase Auth stays the identity source; the application exchanges verified
--- Supabase sessions for short-lived ES256 Neon JWTs. Authenticated browser
+-- The application exchanges verified Anclora Identity sessions for short-lived
+-- ES256 Neon JWTs. Authenticated browser
 -- requests use RLS. The server-only service_role is BYPASSRLS.
 
 DO $$
@@ -60,7 +60,7 @@ GRANT UPDATE (full_name, job_title, location, bio, specialization, achievements,
 DROP POLICY IF EXISTS nexus_members_read_self ON public.organization_members;
 CREATE POLICY nexus_members_read_self
   ON public.organization_members FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+  USING (user_id = auth.user_id());
 
 DROP POLICY IF EXISTS nexus_organizations_read_member ON public.organizations;
 CREATE POLICY nexus_organizations_read_member
@@ -68,24 +68,24 @@ CREATE POLICY nexus_organizations_read_member
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = organizations.id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
 DROP POLICY IF EXISTS nexus_profiles_read_self ON public.user_profiles;
 CREATE POLICY nexus_profiles_read_self
   ON public.user_profiles FOR SELECT TO authenticated
-  USING (id = auth.uid());
+  USING (id = auth.user_id());
 
 DROP POLICY IF EXISTS nexus_profiles_insert_self ON public.user_profiles;
 CREATE POLICY nexus_profiles_insert_self
   ON public.user_profiles FOR INSERT TO authenticated
   WITH CHECK (
-    id = auth.uid()
+    id = auth.user_id()
     AND EXISTS (
       SELECT 1 FROM public.organization_members AS member
       WHERE member.org_id = user_profiles.org_id
-        AND member.user_id = auth.uid()
+        AND member.user_id = auth.user_id()
         AND member.status = 'active'
     )
   );
@@ -93,8 +93,8 @@ CREATE POLICY nexus_profiles_insert_self
 DROP POLICY IF EXISTS nexus_profiles_update_self ON public.user_profiles;
 CREATE POLICY nexus_profiles_update_self
   ON public.user_profiles FOR UPDATE TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+  USING (id = auth.user_id())
+  WITH CHECK (id = auth.user_id());
 
 DROP POLICY IF EXISTS nexus_leads_read_org ON public.leads;
 CREATE POLICY nexus_leads_read_org
@@ -102,7 +102,7 @@ CREATE POLICY nexus_leads_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = leads.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -112,7 +112,7 @@ CREATE POLICY nexus_tasks_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = tasks.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -122,7 +122,7 @@ CREATE POLICY nexus_properties_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = properties.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -132,7 +132,7 @@ CREATE POLICY nexus_properties_insert_org
   WITH CHECK (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = properties.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -142,7 +142,7 @@ CREATE POLICY nexus_agent_logs_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = agent_logs.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -152,7 +152,7 @@ CREATE POLICY nexus_dq_candidates_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = dq_entity_candidates.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));
 
@@ -162,6 +162,6 @@ CREATE POLICY nexus_weekly_recaps_read_org
   USING (EXISTS (
     SELECT 1 FROM public.organization_members AS member
     WHERE member.org_id = weekly_recaps.org_id
-      AND member.user_id = auth.uid()
+      AND member.user_id = auth.user_id()
       AND member.status = 'active'
   ));

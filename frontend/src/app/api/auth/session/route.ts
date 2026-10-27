@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { isAncloraIdentityEnabled } from '@/lib/anclora-identity/env'
 import { getNexusIdentitySession } from '@/lib/anclora-identity/session'
 import { createNeonJwt } from '@/lib/neon-jwt'
 
@@ -7,7 +6,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  if (!isAncloraIdentityEnabled()) return NextResponse.json({ error: 'ANCLORA_IDENTITY_DISABLED' }, { status: 404 })
   const session = await getNexusIdentitySession()
   if (!session) return NextResponse.json({ user: null, session: null }, { headers: { 'Cache-Control': 'no-store' } })
 

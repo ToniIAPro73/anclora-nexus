@@ -7,7 +7,7 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from .notebooklm_service import NOTEBOOK_ID, NOTEBOOK_NAME
-from .supabase_service import SupabaseService
+from .neon_service import NeonService
 
 
 DEFAULT_PACK_KEY = os.getenv("INTELLIGENCE_DEFAULT_PACK_KEY", "mallorca-suroeste-2026")
@@ -75,7 +75,7 @@ def _build_fallback_pack(org_id: str) -> dict[str, Any]:
     )
 
 
-async def _collect_insight_stats(db: SupabaseService, org_id: str) -> dict[str, dict[str, Any]]:
+async def _collect_insight_stats(db: NeonService, org_id: str) -> dict[str, dict[str, Any]]:
     try:
         response = (
             db.client.table("notebooklm_insights")
@@ -106,7 +106,7 @@ async def _collect_insight_stats(db: SupabaseService, org_id: str) -> dict[str, 
     return stats
 
 
-async def list_intelligence_packs(db: SupabaseService, org_id: str) -> list[dict[str, Any]]:
+async def list_intelligence_packs(db: NeonService, org_id: str) -> list[dict[str, Any]]:
     stats = await _collect_insight_stats(db=db, org_id=org_id)
     try:
         response = (
@@ -129,7 +129,7 @@ async def list_intelligence_packs(db: SupabaseService, org_id: str) -> list[dict
     return [_serialize_pack(row, stats=stats.get(str(row.get("notebook_id") or ""))) for row in rows]
 
 
-async def get_intelligence_pack(db: SupabaseService, org_id: str, pack_id: str) -> Optional[dict[str, Any]]:
+async def get_intelligence_pack(db: NeonService, org_id: str, pack_id: str) -> Optional[dict[str, Any]]:
     packs = await list_intelligence_packs(db=db, org_id=org_id)
     for pack in packs:
         if str(pack.get("id")) == str(pack_id):
@@ -137,7 +137,7 @@ async def get_intelligence_pack(db: SupabaseService, org_id: str, pack_id: str) 
     return None
 
 
-async def get_active_intelligence_pack(db: SupabaseService, org_id: str) -> dict[str, Any]:
+async def get_active_intelligence_pack(db: NeonService, org_id: str) -> dict[str, Any]:
     packs = await list_intelligence_packs(db=db, org_id=org_id)
     for pack in packs:
         if pack.get("is_default") and pack.get("status") != "archived":
@@ -149,7 +149,7 @@ async def get_active_intelligence_pack(db: SupabaseService, org_id: str) -> dict
 
 
 async def create_intelligence_pack(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
@@ -186,7 +186,7 @@ async def create_intelligence_pack(
 
 
 async def update_intelligence_pack(
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     pack_id: str,
     payload: dict[str, Any],

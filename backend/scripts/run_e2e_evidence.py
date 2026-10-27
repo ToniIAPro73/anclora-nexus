@@ -6,13 +6,13 @@ import urllib.request
 import urllib.error
 import socket
 
-# DNS resilience for Supabase cloud hosts
+# DNS resilience for Neon cloud hosts
 _orig_getaddrinfo = socket.getaddrinfo
 def _resilient_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     try:
         return _orig_getaddrinfo(host, port, family, type, proto, flags)
     except socket.gaierror:
-        if "supabase.co" in str(host):
+        if "neon.co" in str(host):
             return [
                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("172.64.149.246", port)),
                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.18.38.10", port)),
@@ -20,7 +20,7 @@ def _resilient_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         raise
 socket.getaddrinfo = _resilient_getaddrinfo
 
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.services.identity_provisioning_service import IdentityProvisioningService
 
 NEXUS_URL = "http://127.0.0.1:8000"
@@ -79,7 +79,7 @@ async def run_e2e():
     print("=================================================================")
     print("🚀 ANCLORA ADMISSION ARCHITECTURE v2 — REAL E2E EVIDENCE RUNNER")
     print("=================================================================")
-    svc = SupabaseService()
+    svc = NeonService()
     id_svc = IdentityProvisioningService(base_url=IDENTITY_URL, service_token=service_token, enabled=True)
 
     # -------------------------------------------------------------
@@ -112,9 +112,9 @@ async def run_e2e():
     assert status == 201, f"Failed intake: {res}"
     req_id1 = res["request_id"]
     
-    # 1.2 Verify record in Supabase
+    # 1.2 Verify record in Neon
     db_rec1 = svc.client.table("access_requests").select("*").eq("id", req_id1).execute().data[0]
-    print(f"1.2 Supabase record created: id={db_rec1['id']}, status={db_rec1['status']}, provisioning_status={db_rec1['provisioning_status']}")
+    print(f"1.2 Neon record created: id={db_rec1['id']}, status={db_rec1['status']}, provisioning_status={db_rec1['provisioning_status']}")
     assert db_rec1["status"] == "pending"
     assert db_rec1["provisioning_status"] == "not_started"
     assert db_rec1["source"] == "private_estates_landing"

@@ -52,8 +52,9 @@ Nexus es la plataforma operativa central para manejo de documentos y contratos e
 | Área | Tecnología |
 |---|---|
 | Frontend | Next.js 16, React 19, TypeScript |
-| Autenticación | Supabase Auth + NextAuth |
-| Almacenamiento | Supabase Storage (cifrado AES-GCM) |
+| Autenticación | Anclora Identity (OIDC) |
+| Base de datos | Neon PostgreSQL Data API |
+| Almacenamiento | Vercel Blob (objetos privados) |
 | Estilos | Tailwind CSS, Radix UI, shadcn |
 | Testing | Vitest + React Testing Library |
 | UI Components | Lucide React, Framer Motion |

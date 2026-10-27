@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import Dict, Any, List
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.services.sellers_service import create_seller
 from backend.models.sellers import NexusSellerCreate, ZonaEnum, FuenteEnum
 
-async def run_prospection_weekly(data: Dict[str, Any], llm: LLMService, db: SupabaseService) -> Dict[str, Any]:
+async def run_prospection_weekly(data: Dict[str, Any], llm: LLMService, db: NeonService) -> Dict[str, Any]:
     """
     Skill for weekly property prospection and lead matching.
     1. Fetch high-priority leads.

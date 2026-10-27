@@ -24,10 +24,10 @@ import {
   listReviewDecisions,
   listGeneratedDocumentVersions,
 } from "@/lib/dms-api";
-import supabase from "@/lib/supabase";
+import database from "@/lib/neon-data-client";
 
 async function getAuthHeader(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await database.auth.getSession();
   return session?.access_token ? `Bearer ${session.access_token}` : "";
 }
 

@@ -1,12 +1,3 @@
-export function isAncloraIdentityEnabled(): boolean {
-  const serverEnabled = process.env.ANCLORA_IDENTITY_ENABLED === 'true'
-  const browserEnabled = process.env.NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED === 'true'
-  if (serverEnabled !== browserEnabled) {
-    throw new Error('ANCLORA_IDENTITY_ENABLED and NEXT_PUBLIC_ANCLORA_IDENTITY_ENABLED must match')
-  }
-  return serverEnabled
-}
-
 export interface AncloraIdentityConfig {
   issuerUrl: string
   clientId: string
@@ -25,7 +16,7 @@ export function getAncloraIdentityConfig(): AncloraIdentityConfig {
   }
   const missing = Object.entries(values).filter(([, value]) => !value).map(([key]) => key)
   if (missing.length) {
-    throw new Error(`ANCLORA_IDENTITY_ENABLED=true but missing configuration: ${missing.join(', ')}`)
+    throw new Error(`Anclora Identity configuration is incomplete: ${missing.join(', ')}`)
   }
   return values as AncloraIdentityConfig
 }

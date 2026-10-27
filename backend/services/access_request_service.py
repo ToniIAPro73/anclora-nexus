@@ -25,7 +25,7 @@ from backend.services.access_request_audit_service import access_request_audit_s
 from backend.services.access_request_email_service import access_request_email_service
 from backend.services.captcha_verification_service import captcha_verification_service, CaptchaVerificationError
 from backend.services.identity_provisioning_service import identity_provisioning_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +89,8 @@ class AccessRequestService:
                 "data_lab": "access_request",
             }.get(_product)
         
-        # 3. Persist to Supabase
-        result = supabase_service.client.table("access_requests").insert(persistence_data).execute()
+        # 3. Persist to Neon
+        result = neon_service.client.table("access_requests").insert(persistence_data).execute()
         
         if not result.data:
             logger.error(f"Failed to persist access request: {result}")
@@ -131,7 +131,7 @@ class AccessRequestService:
         created_to: Optional[str] = None,
         limit: int = 50,
     ) -> list[Dict[str, Any]]:
-        query = supabase_service.client.table("access_requests").select("*").eq("org_id", org_id)
+        query = neon_service.client.table("access_requests").select("*").eq("org_id", org_id)
         if status:
             query = query.eq("status", status.value)
         if product:
@@ -156,7 +156,7 @@ class AccessRequestService:
 
     async def get_request(self, org_id: str, request_id: str) -> Dict[str, Any]:
         result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .select("*")
             .eq("org_id", org_id)
             .eq("id", request_id)
@@ -174,7 +174,7 @@ class AccessRequestService:
     ) -> AccessRequestAnalyticsSummary:
         sample_limit = max(1, min(limit, 1000))
         request_result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .select("*")
             .eq("org_id", org_id)
             .order("created_at", desc=True)
@@ -183,7 +183,7 @@ class AccessRequestService:
         )
         rows = request_result.data or []
         audit_result = (
-            supabase_service.client.table("audit_log")
+            neon_service.client.table("audit_log")
             .select("timestamp,action,resource_id,details")
             .eq("org_id", org_id)
             .eq("resource_type", "access_request")
@@ -306,7 +306,7 @@ class AccessRequestService:
 
         # 1. Fetch requests
         request_result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .select("*")
             .eq("org_id", org_id)
             .order("created_at", desc=True)
@@ -319,7 +319,7 @@ class AccessRequestService:
         # We look back dedupe_hours + some buffer to be safe
         lookback_time = (now - timedelta(hours=dedupe_hours + 1)).isoformat()
         audit_result = (
-            supabase_service.client.table("audit_log")
+            neon_service.client.table("audit_log")
             .select("timestamp,action,resource_id,details")
             .eq("org_id", org_id)
             .eq("resource_type", "access_request")
@@ -375,7 +375,7 @@ class AccessRequestService:
                 # We need more info for these. Let's fetch audit events for THIS request.
                 # Optimization: in a real scan we'd batch this.
                 request_audit = (
-                    supabase_service.client.table("audit_log")
+                    neon_service.client.table("audit_log")
                     .select("timestamp,action,resource_id,details")
                     .eq("org_id", org_id)
                     .eq("resource_type", "access_request")
@@ -737,7 +737,7 @@ class AccessRequestService:
     ) -> list[Dict[str, Any]]:
         await self.get_request(org_id, request_id)
         result = (
-            supabase_service.client.table("audit_log")
+            neon_service.client.table("audit_log")
             .select("id,timestamp,actor_type,actor_id,action,resource_type,resource_id,details")
             .eq("org_id", org_id)
             .eq("resource_type", "access_request")
@@ -767,7 +767,7 @@ class AccessRequestService:
         update_payload: Dict[str, Any],
     ) -> Dict[str, Any]:
         result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .update(update_payload)
             .eq("org_id", org_id)
             .eq("id", request_id)
@@ -787,7 +787,7 @@ class AccessRequestService:
         update_payload: Dict[str, Any],
     ) -> Dict[str, Any]:
         result = (
-            supabase_service.client.table("access_requests")
+            neon_service.client.table("access_requests")
             .update(update_payload)
             .eq("org_id", org_id)
             .eq("id", request_id)

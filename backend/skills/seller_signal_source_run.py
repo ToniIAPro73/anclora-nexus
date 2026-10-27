@@ -13,13 +13,13 @@ from typing import Any, Dict, List, Optional
 
 from backend.services.llm_service import LLMService
 from backend.services.seller_signal_source_service import run_seller_signal_source_pipeline
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 
 async def run_seller_signal_source_run(
     data: Dict[str, Any],
     llm: Optional[LLMService],
-    db: Optional[SupabaseService],
+    db: Optional[NeonService],
 ) -> Dict[str, Any]:
     zonas: Optional[List[str]] = data.get("zonas")
     zone: Optional[str] = data.get("zone")

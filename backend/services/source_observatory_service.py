@@ -14,12 +14,12 @@ from backend.models.source_observatory import (
     TrendPoint,
 )
 from backend.services.cloud_ops_service import get_cloud_ops_summary
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class SourceObservatoryService:
     def __init__(self) -> None:
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     def _table_exists(self, table: str) -> bool:
         try:

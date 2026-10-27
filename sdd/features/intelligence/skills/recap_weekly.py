@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, ValidationError
 
 from backend.services.llm_service import LLMService
-from backend.services.supabase_service import SupabaseService
+
 
 # --- Versioning ---
 __version__ = "1.0.0"
@@ -64,7 +64,7 @@ async def _call_llm_with_retry(func, *args, attempts: int = 3, **kwargs) -> Any:
     raise last_error
 
 # --- Core Skill ---
-async def run_recap_weekly(data: Dict[str, Any], llm: LLMService, db: SupabaseService) -> Dict[str, Any]:
+async def run_recap_weekly(data: Dict[str, Any], llm: LLMService, db: Any) -> Dict[str, Any]:
     """
     Skill for generating a weekly luxury executive summary.
     
@@ -76,7 +76,7 @@ async def run_recap_weekly(data: Dict[str, Any], llm: LLMService, db: SupabaseSe
     Args:
         data: Execution parameters (e.g., lookback days).
         llm: Injected LLM service.
-        db: Injected Supabase service.
+        db: Injected database service.
 
     Returns:
         A dictionary matching RecapOutput schema.

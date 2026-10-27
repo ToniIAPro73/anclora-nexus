@@ -14,7 +14,7 @@ from backend.models.buyer_memory import (
     BuyerMemoryResponse,
 )
 from backend.services.embedding_service import embedding_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 
 DEFAULT_QUERY = "buyer referral prioridad presupuesto zona visita siguiente paso"
@@ -30,7 +30,7 @@ STOPWORDS = {
 
 class BuyerMemoryService:
     def __init__(self) -> None:
-        self.client = SupabaseService().client
+        self.client = NeonService().client
 
     def _table_exists(self, table: str) -> bool:
         try:
@@ -219,7 +219,7 @@ class BuyerMemoryService:
             return 0.0
         return dot / (left_norm * right_norm)
 
-    async def rebuild_for_buyer(self, *, db: SupabaseService, org_id: str, buyer_id: str) -> BuyerMemoryRebuildResponse:
+    async def rebuild_for_buyer(self, *, db: NeonService, org_id: str, buyer_id: str) -> BuyerMemoryRebuildResponse:
         if not self._table_exists("buyer_memory_records"):
             return BuyerMemoryRebuildResponse(buyer_id=buyer_id, status="migration_missing", indexed_records=0, created_records=0)
 
@@ -363,7 +363,7 @@ class BuyerMemoryService:
             reasons.append(BuyerMemoryMatchReason(type="artifact_match", value=artifact))
         return score, keyword_hits, reasons
 
-    async def search(self, *, db: SupabaseService, org_id: str, buyer_id: str, query: str = DEFAULT_QUERY, limit: int = 5) -> BuyerMemoryResponse:
+    async def search(self, *, db: NeonService, org_id: str, buyer_id: str, query: str = DEFAULT_QUERY, limit: int = 5) -> BuyerMemoryResponse:
         if not self._table_exists("buyer_memory_records"):
             return BuyerMemoryResponse(
                 buyer_id=buyer_id,
@@ -443,7 +443,7 @@ class BuyerMemoryService:
             retrieval_summary=retrieval_summary,
         )
 
-    async def get_preview_map(self, *, db: SupabaseService, org_id: str, buyer_ids: List[str], limit_per_buyer: int = 2) -> Dict[str, Dict[str, Any]]:
+    async def get_preview_map(self, *, db: NeonService, org_id: str, buyer_ids: List[str], limit_per_buyer: int = 2) -> Dict[str, Dict[str, Any]]:
         if not buyer_ids or not self._table_exists("buyer_memory_records"):
             return {}
         rows = (

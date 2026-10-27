@@ -7,7 +7,7 @@ from backend.models.valuation_requests import PublicValuationRequestCreate
 from backend.services.captcha_verification_service import captcha_verification_service
 from backend.services.email_delivery_service import get_email_transport_summary, send_email_native
 from backend.services.external_portal_email_service import build_valuation_submission_confirmation
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class ValuationRequestService:
@@ -32,7 +32,7 @@ class ValuationRequestService:
             "created_at": now,
             "updated_at": now,
         }
-        response = supabase_service.client.table("valuation_requests").insert(record).execute()
+        response = neon_service.client.table("valuation_requests").insert(record).execute()
         result = response.data[0]
 
         transport = get_email_transport_summary()
@@ -49,7 +49,7 @@ class ValuationRequestService:
                 html=mail.get("html"),
             )
             updated = (
-                supabase_service.client.table("valuation_requests")
+                neon_service.client.table("valuation_requests")
                 .update({"confirmation_email_sent_at": now, "updated_at": now})
                 .eq("org_id", org_id)
                 .eq("id", result["id"])

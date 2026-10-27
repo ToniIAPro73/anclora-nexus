@@ -15,7 +15,7 @@ from backend.models.dms import (
     TemplateVersionCreate,
 )
 from backend.services.document_encryption_service import DocumentEncryptionService
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.blob_storage import put_private_blob
 
 router = APIRouter()
@@ -39,7 +39,7 @@ async def require_dms_membership(
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 def _fetch_template(org_id: str, template_id: str) -> Optional[dict[str, Any]]:

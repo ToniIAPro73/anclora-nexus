@@ -8,7 +8,7 @@ from fastapi.security.api_key import APIKeyHeader
 from pydantic import ValidationError
 from backend.config import settings
 from backend.services.syncxml_pilot_service import syncxml_pilot_service
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ def _upsert_intake_access_request(
     # Idempotency: return the existing record if already processed
     if idempotency_key:
         existing = (
-            supabase_service.client
+            neon_service.client
             .table("access_requests")
             .select("id,status")
             .eq("idempotency_key", idempotency_key)
@@ -147,7 +147,7 @@ def _upsert_intake_access_request(
     if extra:
         record.update(extra)
 
-    result = supabase_service.client.table("access_requests").insert(record).execute()
+    result = neon_service.client.table("access_requests").insert(record).execute()
     if not result.data:
         raise RuntimeError("Failed to persist access request from intake forward")
     return {"id": result.data[0]["id"], "idempotent": False}
@@ -227,7 +227,7 @@ async def dms_retention_sweep(api_key: str = Depends(get_api_key)):
     # Fetch all distinct org IDs that have generated documents
     try:
         orgs_response = (
-            supabase_service.client
+            neon_service.client
             .table("generated_documents")
             .select("org_id")
             .neq("status", "archived")

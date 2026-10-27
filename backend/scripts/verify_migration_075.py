@@ -9,7 +9,7 @@ def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     try:
         return _orig_getaddrinfo(host, port, family, type, proto, flags)
     except socket.gaierror:
-        if "supabase.co" in str(host):
+        if "neon.co" in str(host):
             return [
                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("172.64.149.246", port)),
                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.18.38.10", port)),
@@ -17,10 +17,10 @@ def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         raise
 socket.getaddrinfo = patched_getaddrinfo
 
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 def verify_migration():
-    svc = SupabaseService()
+    svc = NeonService()
     print("=== STEP 8: MIGRATION 075 & RLS VERIFICATION ===")
     
     # 1. Check all columns
@@ -90,7 +90,7 @@ def verify_migration():
         svc.client.table("access_requests").delete().eq("id", test_id).execute()
         print("✅ Successfully cleaned up test record. Zero side effects!")
         
-        print("🎉 MIGRATION 075 AND DEV RLS VERIFIED SUCCESSFULLY WITH REAL SUPABASE OPERATIONS!")
+        print("🎉 MIGRATION 075 AND DEV RLS VERIFIED SUCCESSFULLY WITH REAL NEON OPERATIONS!")
         return True
     except Exception as e:
         print(f"❌ Error during migration verification test: {e}")

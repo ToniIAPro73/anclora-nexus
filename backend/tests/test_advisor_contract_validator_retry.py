@@ -13,8 +13,6 @@ import os
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 import httpx
 import pytest
@@ -263,7 +261,7 @@ class TestValidateDocumentWithRetry:
         mock_supa.client = mock_client
 
         with patch(
-            "backend.services.supabase_service.supabase_service",
+            "backend.services.neon_service.neon_service",
             mock_supa,
         ):
             await service._notify_command_center(

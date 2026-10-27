@@ -66,7 +66,7 @@ Anclora Nexus es un CRM inmobiliario inteligente diseñado específicamente para
 - Resolución mínima: 1280x720px (recomendada: 1920x1080px)
 
 **Organizativos:**
-- Cuenta de usuario activa en Supabase Auth
+- Cuenta de usuario activa en Anclora Identity
 - Membresía activa en una organización
 - Rol asignado: `owner`, `manager` o `agent`
 
@@ -1730,7 +1730,7 @@ Acción recomendada: **Contactar hoy - alta probabilidad de mandato**
 **Respuesta:** No, Anclora Nexus requiere conexión a internet activa.
 
 **Motivo:**
-- Datos en tiempo real desde Supabase
+- Datos obtenidos desde Neon
 - Ejecución de agentes IA requiere conectividad
 - Sync territorial consume APIs externas
 

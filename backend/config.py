@@ -12,14 +12,10 @@ class Settings(BaseSettings):
     # GuestHub product environment (renamed from Anclora SyncXML, 2026-08).
     # Canonical env name: GUESTHUB_ENV; legacy SYNCXML_ENV still accepted as fallback.
     GUESTHUB_ENV: str = Field(default="development", validation_alias=AliasChoices("GUESTHUB_ENV", "SYNCXML_ENV"))
-    ALLOW_REAL_SUPABASE_WRITE: bool = False
+    ALLOW_REAL_NEON_WRITE: bool = False
     USE_SYNTHETIC_DATA_ONLY: bool = False
-    
-    # Supabase Settings
-    SUPABASE_URL: str
-    SUPABASE_ANON_KEY: str
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
-    DATABASE_PROVIDER: str = "supabase"
+
+    # Neon Data API settings
     NEON_DATA_API_URL: Optional[str] = None
     NEON_JWT_PRIVATE_KEY: Optional[str] = None
     NEON_JWT_KEY_ID: Optional[str] = None
@@ -108,7 +104,6 @@ class Settings(BaseSettings):
     NEXUS_DOCUMENT_ENCRYPTION_KEY: Optional[str] = None
     NEXUS_DMS_BUCKET: str = "dms"
     NEXUS_DMS_MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
-    NEXUS_STORAGE_PROVIDER: str = "supabase"
     BLOB_READ_WRITE_TOKEN: Optional[str] = None
     NEXUS_AVATAR_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
     DOCUSEAL_WEBHOOK_SECRET: Optional[str] = None

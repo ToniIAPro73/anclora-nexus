@@ -4,7 +4,7 @@ import { Bell, Check, Info, AlertTriangle, XCircle, CheckCircle, ChevronLeft, Ch
 import { motion, AnimatePresence } from 'framer-motion'
 import { Notification } from '@/lib/notifications'
 import { useI18n } from '@/lib/i18n'
-import supabase, { subscribeToLeads, subscribeToTasks } from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 
 const ITEMS_PER_PAGE = 3
 type NotificationWithCreatedAt = Notification & { createdAt: number }
@@ -86,18 +86,18 @@ export function NotificationPanel() {
     }
 
     const resolveScope = async (): Promise<{ orgId?: string; role?: string; userId?: string }> => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await database.auth.getUser()
       const userId = user?.id
       if (!userId) return {}
 
-      const { data: profile } = await supabase
+      const { data: profile } = await database
         .from('user_profiles')
         .select('org_id')
         .eq('id', userId)
         .maybeSingle()
 
       const preferredOrgId = profile?.org_id || null
-      const { data: memberships } = await supabase
+      const { data: memberships } = await database
         .from('organization_members')
         .select('org_id,role')
         .eq('user_id', userId)
@@ -119,13 +119,13 @@ export function NotificationPanel() {
     const loadInitialNotifications = async () => {
       const scope = await resolveScope()
 
-      let leadsQuery = supabase
+      let leadsQuery = database
         .from('leads')
         .select('id,name,ai_priority,created_at,assigned_user_id,org_id')
         .order('created_at', { ascending: false })
         .limit(10)
 
-      let tasksQuery = supabase
+      let tasksQuery = database
         .from('tasks')
         .select('id,title,created_at,due_date,status,assigned_user_id,org_id')
         .order('created_at', { ascending: false })
@@ -158,53 +158,9 @@ export function NotificationPanel() {
       setNotifications(combined)
     }
 
-    const pushNotification = (next: NotificationWithCreatedAt) => {
-      setNotifications((prev) => {
-        if (prev.some((n) => n.id === next.id)) return prev
-        const merged = [next, ...prev].sort((a, b) => {
-          const aTime = 'createdAt' in a ? Number(a.createdAt) : 0
-          const bTime = 'createdAt' in b ? Number(b.createdAt) : 0
-          return bTime - aTime
-        })
-        return merged
-          .map((notification) => {
-            if ('createdAt' in notification) {
-              const { createdAt, ...rest } = notification
-              void createdAt
-              return rest
-            }
-            return notification
-          })
-          .slice(0, 30)
-      })
-    }
-
     void loadInitialNotifications()
-
-    const leadChannel = subscribeToLeads(async (payload) => {
-      const scope = await resolveScope()
-      const eventType = String(payload.eventType || '')
-      if (eventType !== 'INSERT') return
-      const row = (payload.new || {}) as Record<string, unknown>
-      if (scope.orgId && String(row.org_id || '') !== scope.orgId) return
-      if (scope.role === 'agent' && scope.userId && String(row.assigned_user_id || '') !== scope.userId) return
-      pushNotification(toLeadNotification(row))
-    })
-
-    const taskChannel = subscribeToTasks(async (payload) => {
-      const scope = await resolveScope()
-      const eventType = String(payload.eventType || '')
-      if (eventType !== 'INSERT') return
-      const row = (payload.new || {}) as Record<string, unknown>
-      if (scope.orgId && String(row.org_id || '') !== scope.orgId) return
-      if (scope.role === 'agent' && scope.userId && String(row.assigned_user_id || '') !== scope.userId) return
-      pushNotification(toTaskNotification(row))
-    })
-
-    return () => {
-      void leadChannel.unsubscribe()
-      void taskChannel.unsubscribe()
-    }
+    const refreshTimer = window.setInterval(() => { void loadInitialNotifications() }, 30_000)
+    return () => window.clearInterval(refreshTimer)
   }, [t])
 
   const handleToggle = () => {

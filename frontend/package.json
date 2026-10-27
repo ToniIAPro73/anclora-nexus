@@ -13,9 +13,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@iamjariwala/react-doc-viewer": "^1.8.0",
-    "@supabase/auth-helpers-nextjs": "^0.15.0",
-    "@supabase/auth-helpers-react": "^0.15.0",
-    "@supabase/supabase-js": "^2.95.3",
+    "@neondatabase/postgrest-js": "^0.2.0-beta",
     "@tailwindcss/typography": "^0.5.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

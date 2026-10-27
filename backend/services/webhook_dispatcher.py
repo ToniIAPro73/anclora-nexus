@@ -98,25 +98,23 @@ class WebhookDispatcherService:
         self,
         webhook_url: Optional[str] = None,
         webhook_secret: Optional[str] = None,
-        supabase_client: Any = None,
+        database_client: Any = None,
         audit_secret: Optional[str] = None,
     ) -> None:
         self._webhook_url = webhook_url or getattr(settings, "CONTENT_GENERATOR_WEBHOOK_URL", None)
         self._webhook_secret = webhook_secret or getattr(settings, "WEBHOOK_SHARED_SECRET", None)
-        self._client = supabase_client
+        self._client = database_client
         self._audit_secret = (
             audit_secret
             or settings.INTERNAL_AUDIT_SECRET
-            or settings.SUPABASE_SERVICE_ROLE_KEY
-            or settings.SUPABASE_ANON_KEY
         )
 
     @property
     def client(self) -> Any:
-        """Lazy-load Supabase client from the shared service if not injected."""
+        """Lazy-load Neon client from the shared service if not injected."""
         if self._client is None:
-            from backend.services.supabase_service import supabase_service
-            self._client = supabase_service.client
+            from backend.services.neon_service import neon_service
+            self._client = neon_service.client
         return self._client
 
     # ------------------------------------------------------------------

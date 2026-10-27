@@ -1,13 +1,12 @@
-"""Seed NotebookLM insights from real territorial queries into Supabase."""
+"""Seed NotebookLM insights using the configured Neon database."""
 from dotenv import load_dotenv
-import os
 
-load_dotenv(r"C:\Users\Usuario\Workspace\01_Proyectos\anclora-nexus\.env")
+load_dotenv()
 
-from supabase import create_client
 from datetime import datetime, timezone
+from backend.services.neon_service import neon_service
 
-db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+db = neon_service.client
 
 ORG_ID = "9d6cb56d-3f21-4f7b-80ea-797a7c2c62cf"
 NOTEBOOK_ID = "9f003773-16c5-4fb4-ab37-7b6c230ab4da"

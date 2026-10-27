@@ -13,8 +13,8 @@ from backend.services.identity_provisioning_service import (
 
 
 @pytest.fixture
-def mock_supabase():
-    with patch("backend.services.access_request_service.supabase_service") as mock:
+def mock_neon():
+    with patch("backend.services.access_request_service.neon_service") as mock:
         yield mock
 
 
@@ -131,7 +131,7 @@ async def test_provision_caso_b_existing_identity(provisioning_service):
 
 
 @pytest.mark.anyio
-async def test_approve_request_updates_record_with_caso_a(mock_supabase):
+async def test_approve_request_updates_record_with_caso_a(mock_neon):
     """AccessRequestService.approve_request correctly stores CASO A invitation details."""
     service = AccessRequestService()
 
@@ -144,7 +144,7 @@ async def test_approve_request_updates_record_with_caso_a(mock_supabase):
     }
 
     mock_query = MagicMock()
-    mock_supabase.client.table.return_value = mock_query
+    mock_neon.client.table.return_value = mock_query
     mock_query.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.limit.return_value = mock_query
@@ -193,7 +193,7 @@ async def test_approve_request_updates_record_with_caso_a(mock_supabase):
 
 
 @pytest.mark.anyio
-async def test_approve_request_updates_record_with_caso_b(mock_supabase):
+async def test_approve_request_updates_record_with_caso_b(mock_neon):
     """AccessRequestService.approve_request correctly stores CASO B membership details."""
     service = AccessRequestService()
 
@@ -206,7 +206,7 @@ async def test_approve_request_updates_record_with_caso_b(mock_supabase):
     }
 
     mock_query = MagicMock()
-    mock_supabase.client.table.return_value = mock_query
+    mock_neon.client.table.return_value = mock_query
     mock_query.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.limit.return_value = mock_query
@@ -277,7 +277,7 @@ async def test_provision_fail_closed_network_error(provisioning_service):
 
 
 @pytest.mark.anyio
-async def test_approve_request_updates_record_fail_closed(mock_supabase):
+async def test_approve_request_updates_record_fail_closed(mock_neon):
     """When Identity provisioning fails, admission is still human-approved but provisioning_status is 'failed'."""
     service = AccessRequestService()
 
@@ -290,7 +290,7 @@ async def test_approve_request_updates_record_fail_closed(mock_supabase):
     }
 
     mock_query = MagicMock()
-    mock_supabase.client.table.return_value = mock_query
+    mock_neon.client.table.return_value = mock_query
     mock_query.select.return_value = mock_query
     mock_query.eq.return_value = mock_query
     mock_query.limit.return_value = mock_query

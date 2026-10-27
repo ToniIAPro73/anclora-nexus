@@ -13,7 +13,7 @@ from backend.models.sellers import EstadoContactoEnum, FuenteEnum, NexusSellerCr
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
 from backend.services.sellers_service import create_seller
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 ZONE_MAP = {
     "andratx": "andratx",
@@ -76,7 +76,7 @@ def _derive_priority(signal: Dict[str, Any]) -> int:
     return min(5, max(1, score))
 
 
-def _build_dedupe_query(db: SupabaseService, org_id: str, signal: Dict[str, Any]):
+def _build_dedupe_query(db: NeonService, org_id: str, signal: Dict[str, Any]):
     anuncio_url = signal.get("anuncio_url")
     website_url = signal.get("website_url")
     direccion = signal.get("direccion")
@@ -111,7 +111,7 @@ def _build_dedupe_query(db: SupabaseService, org_id: str, signal: Dict[str, Any]
 async def run_seller_signal_ingest(
     data: Dict[str, Any],
     llm: LLMService,
-    db: SupabaseService,
+    db: NeonService,
 ) -> Dict[str, Any]:
     signals = data.get("signals") or []
     org_id = resolve_legacy_org_id(data.get("org_id"), "seller_signal_ingest")

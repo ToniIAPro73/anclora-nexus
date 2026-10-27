@@ -3,7 +3,6 @@ import { hasNexusApplicationAccess } from '@/lib/anclora-identity/authorization'
 import { encodeSigned, readNexusIdentitySession } from '@/lib/anclora-identity/session-token'
 
 const originalEnv = {
-  enabled: process.env.ANCLORA_IDENTITY_ENABLED,
   issuer: process.env.ANCLORA_IDENTITY_ISSUER_URL,
   clientId: process.env.ANCLORA_IDENTITY_CLIENT_ID,
   clientSecret: process.env.ANCLORA_IDENTITY_CLIENT_SECRET,
@@ -13,7 +12,7 @@ const originalEnv = {
 
 afterEach(() => {
   const pairs = [
-    ['ANCLORA_IDENTITY_ENABLED', originalEnv.enabled], ['ANCLORA_IDENTITY_ISSUER_URL', originalEnv.issuer],
+    ['ANCLORA_IDENTITY_ISSUER_URL', originalEnv.issuer],
     ['ANCLORA_IDENTITY_CLIENT_ID', originalEnv.clientId], ['ANCLORA_IDENTITY_CLIENT_SECRET', originalEnv.clientSecret],
     ['ANCLORA_IDENTITY_REDIRECT_URI', originalEnv.redirect], ['ANCLORA_IDENTITY_SESSION_SECRET', originalEnv.secret],
   ] as const
@@ -32,7 +31,6 @@ describe('Nexus Anclora Identity access', () => {
 
   it('accepts only valid, unexpired signed Nexus sessions', () => {
     const secret = 'test-session-secret-at-least-32-characters'
-    process.env.ANCLORA_IDENTITY_ENABLED = 'true'
     process.env.ANCLORA_IDENTITY_ISSUER_URL = 'https://identity.example.test'
     process.env.ANCLORA_IDENTITY_CLIENT_ID = 'anclora-nexus'
     process.env.ANCLORA_IDENTITY_CLIENT_SECRET = 'client-secret-at-least-16-characters'

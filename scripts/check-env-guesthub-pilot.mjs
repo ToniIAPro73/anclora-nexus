@@ -11,8 +11,8 @@ const __dirname = path.dirname(__filename);
 const envPath = path.join(__dirname, '..', '.env.example');
 
 const REQUIRED_VARS = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'NEON_DATA_API_URL',
+  'NEON_JWT_PRIVATE_KEY',
   'PUBLIC_CTA_ORG_ID',
   'GUESTHUB_WEBHOOK_SECRET',
   'GUESTHUB_INTERNAL_API_URL',

@@ -4,7 +4,7 @@
 
 ```
 backend/seeds/
-├── document_templates_seed.sql   ← Seed SQL principal (ejecutar en Supabase)
+├── document_templates_seed.sql   ← Seed SQL principal (ejecutar en Neon)
 ├── README-templates.md           ← Este archivo
 └── templates/
     └── es/                       ← 14 plantillas en español
@@ -27,7 +27,7 @@ backend/seeds/
 ## Pasos de integración
 
 1. **Subir los `.md`** al storage privado de Nexus en la ruta `templates/es/`
-2. **Ejecutar el seed SQL** en Supabase:
+2. **Ejecutar el seed SQL** en Neon:
 
    ```sql
    \i backend/seeds/document_templates_seed.sql

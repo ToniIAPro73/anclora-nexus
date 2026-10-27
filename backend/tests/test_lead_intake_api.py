@@ -13,8 +13,6 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.api.routes.lead_intake import assign_temperature, check_duplicate_lead
 from backend.models.lead_intake import (
@@ -148,7 +146,7 @@ class FakeExecuteResult:
 
 
 class FakeQueryBuilder:
-    """Chainable mock for Supabase query builder."""
+    """Chainable mock for Neon query builder."""
 
     def __init__(self, data=None):
         self._data = data
@@ -178,7 +176,7 @@ class TestCheckDuplicateLead:
         )
         assert result is None
 
-    @patch("backend.api.routes.lead_intake.supabase_service")
+    @patch("backend.api.routes.lead_intake.neon_service")
     def test_returns_existing_lead_when_duplicate_found(self, mock_svc):
         existing_lead = {"id": "lead-existing-123", "temperature": "warm"}
         mock_svc.client.table.return_value = FakeQueryBuilder(data=[existing_lead])
@@ -192,7 +190,7 @@ class TestCheckDuplicateLead:
         )
         assert result == existing_lead
 
-    @patch("backend.api.routes.lead_intake.supabase_service")
+    @patch("backend.api.routes.lead_intake.neon_service")
     def test_returns_none_when_no_duplicate(self, mock_svc):
         mock_svc.client.table.return_value = FakeQueryBuilder(data=[])
 
@@ -205,7 +203,7 @@ class TestCheckDuplicateLead:
         )
         assert result is None
 
-    @patch("backend.api.routes.lead_intake.supabase_service")
+    @patch("backend.api.routes.lead_intake.neon_service")
     def test_returns_none_on_error(self, mock_svc):
         mock_svc.client.table.side_effect = Exception("DB connection failed")
 

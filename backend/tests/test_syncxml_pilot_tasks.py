@@ -97,7 +97,7 @@ def _payload(**overrides):
 def _configure_safe_settings(settings, *, app_env="staging", syncxml_env="staging", allow_real_write=False, synthetic_only=True, auto_approve=False):
     settings.APP_ENV = app_env
     settings.GUESTHUB_ENV = syncxml_env
-    settings.ALLOW_REAL_SUPABASE_WRITE = allow_real_write
+    settings.ALLOW_REAL_NEON_WRITE = allow_real_write
     settings.USE_SYNTHETIC_DATA_ONLY = synthetic_only
     settings.GUESTHUB_PILOT_AUTO_APPROVE = auto_approve
     settings.PUBLIC_CTA_ORG_ID = "org_1"
@@ -121,7 +121,7 @@ def _configure_production_settings(settings, *, auto_approve=False):
 
 @pytest.mark.asyncio
 async def test_blocks_real_pilot_request_write_in_staging():
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings:
         _configure_safe_settings(settings)
@@ -132,12 +132,12 @@ async def test_blocks_real_pilot_request_write_in_staging():
     assert result["reason"] == REAL_WRITE_BLOCK_REASON
     assert result["action"] == "process_incoming_lead"
     assert result["environment"] == "staging"
-    supabase.client.table.assert_not_called()
+    neon.client.table.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_blocks_real_write_when_syncxml_environment_is_staging():
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings:
         _configure_safe_settings(settings, app_env="production", syncxml_env="staging", allow_real_write=True, synthetic_only=False)
@@ -147,12 +147,12 @@ async def test_blocks_real_write_when_syncxml_environment_is_staging():
     assert result["blocked"] is True
     assert result["reason"] == REAL_WRITE_BLOCK_REASON
     assert result["syncxmlEnvironment"] == "staging"
-    supabase.client.table.assert_not_called()
+    neon.client.table.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_blocks_real_write_when_synthetic_only_is_enabled():
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings:
         _configure_safe_settings(settings, app_env="production", syncxml_env="production", allow_real_write=True, synthetic_only=True)
@@ -161,7 +161,7 @@ async def test_blocks_real_write_when_synthetic_only_is_enabled():
 
     assert result["blocked"] is True
     assert result["useSyntheticDataOnly"] is True
-    supabase.client.table.assert_not_called()
+    neon.client.table.assert_not_called()
 
 
 def test_does_not_autoapprove_when_flag_is_false():
@@ -187,7 +187,7 @@ async def test_allows_production_flow_with_explicit_real_write_and_mocks():
         "status": "active",
     }
 
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings, patch.object(
         syncxml_pilot_service, "_create_syncxml_user", new=AsyncMock(return_value=credentials)
@@ -198,7 +198,7 @@ async def test_allows_production_flow_with_explicit_real_write_and_mocks():
 
         access_table = Mock()
         task_table = Mock()
-        supabase.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
         access_table.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
         access_table.insert.return_value.execute.return_value.data = [record]
         access_table.update.return_value.eq.return_value.execute.return_value.data = [{**record, "status": "approved", "metadata": {}}]
@@ -207,7 +207,7 @@ async def test_allows_production_flow_with_explicit_real_write_and_mocks():
 
     assert result["id"] == "ar_1"
     assert result["status"] == "approved"
-    supabase.client.table.assert_called()
+    neon.client.table.assert_called()
     task_table.insert.assert_not_called()
 
 
@@ -216,13 +216,13 @@ async def test_syncxml_same_idempotency_key_does_not_duplicate():
     access_table = FakeAccessRequestsTable()
     task_table = Mock()
 
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings, patch.object(
         syncxml_pilot_service, "_create_review_task", new=AsyncMock()
     ):
         _configure_production_settings(settings)
-        supabase.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
 
         first = await syncxml_pilot_service.process_incoming_lead(
             _payload(
@@ -246,13 +246,13 @@ async def test_syncxml_same_email_different_idempotency_key_creates_two_rows():
     access_table = FakeAccessRequestsTable()
     task_table = Mock()
 
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings, patch.object(
         syncxml_pilot_service, "_create_review_task", new=AsyncMock()
     ):
         _configure_production_settings(settings)
-        supabase.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
 
         first = await syncxml_pilot_service.process_incoming_lead(
             _payload(
@@ -279,13 +279,13 @@ async def test_syncxml_webhook_persists_explicit_access_request_contract_fields(
     access_table = FakeAccessRequestsTable()
     task_table = Mock()
 
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings, patch.object(
         syncxml_pilot_service, "_create_review_task", new=AsyncMock()
     ):
         _configure_production_settings(settings)
-        supabase.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
 
         await syncxml_pilot_service.process_incoming_lead(
             _payload(
@@ -307,13 +307,13 @@ async def test_syncxml_webhook_without_own_sample_stays_pending_and_marks_sample
     access_table = FakeAccessRequestsTable()
     task_table = Mock()
 
-    with patch("backend.services.syncxml_pilot_service.supabase_service") as supabase, patch(
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
         "backend.services.syncxml_pilot_service.settings"
     ) as settings, patch.object(
         syncxml_pilot_service, "_create_review_task", new=AsyncMock()
     ):
         _configure_production_settings(settings)
-        supabase.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
 
         result = await syncxml_pilot_service.process_incoming_lead(
             _payload(
@@ -344,7 +344,7 @@ async def test_block_reason_is_clear_for_manual_approval():
         "action": "approve_manual",
         "environment": "staging",
         "syncxmlEnvironment": "staging",
-        "allowRealSupabaseWrite": False,
+        "allowRealNeonWrite": False,
         "useSyntheticDataOnly": True,
     }
 

@@ -36,7 +36,7 @@ from backend.services.document_encryption_service import DocumentEncryptionServi
 from backend.services.document_export_service import export_docx, export_pdf
 from backend.services.document_generation_service import fetch_template_required_fields
 from backend.services.document_template_rendering_service import build_template_context, resolve_and_render_template
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.services.blob_storage import get_private_blob, put_private_blob
 
 
@@ -74,7 +74,7 @@ def _safe_filename(filename: str | None) -> str:
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 def _fetch_org(org_id: str) -> dict[str, Any]:
@@ -87,7 +87,7 @@ def _fetch_agent_context(user_id: str, org_id: str) -> dict[str, Any]:
     """Fetch the logged-in user's profile to use as agent context in template rendering."""
     try:
         resp = (
-            supabase_service.client.table("user_profiles")
+            neon_service.client.table("user_profiles")
             .select("id, email, full_name, job_title")
             .eq("id", user_id)
             .eq("org_id", org_id)
@@ -164,9 +164,9 @@ def _audit_access(org_id: str, user_id: Optional[str], action: str, entity_id: s
         }
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(supabase_service.insert_audit_log(payload))
+            loop.create_task(neon_service.insert_audit_log(payload))
         except RuntimeError:
-            asyncio.run(supabase_service.insert_audit_log(payload))
+            asyncio.run(neon_service.insert_audit_log(payload))
     except Exception:
         pass
 
@@ -692,7 +692,7 @@ async def docuseal_webhook(
         "timestamp": ts_str,
     }
 
-    # Download the signed PDF from DocuSeal and store in Supabase
+    # Download the signed PDF from DocuSeal and store in Neon
     signed_path: Optional[str] = None
     if is_completed and payload.document_url:
         try:

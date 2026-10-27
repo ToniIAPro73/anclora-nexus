@@ -2,8 +2,6 @@ import os
 import asyncio
 from types import SimpleNamespace
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.services.advisor_contract_validator_service import AdvisorContractValidatorService
 

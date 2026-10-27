@@ -5,13 +5,11 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("NEXUS_DOCUMENT_ENCRYPTION_KEY", "00" * 32)
 
 from backend.api.deps import get_current_user, get_org_id
 from backend.api.routes.dms import require_dms_membership, router
-from backend.tests.test_dms_routes import ORG_ID, USER_ID, SupabaseClientStub, add_document, add_folder, install_stub
+from backend.tests.test_dms_routes import ORG_ID, USER_ID, NeonClientStub, add_document, add_folder, install_stub
 
 
 app = FastAPI()
@@ -23,7 +21,7 @@ client = TestClient(app)
 
 
 def test_signed_document_is_immutable_for_validation(monkeypatch):
-    stub = install_stub(monkeypatch, SupabaseClientStub())
+    stub = install_stub(monkeypatch, NeonClientStub())
     folder_id = add_folder(stub)
     document = add_document(stub, folder_id)
     document["legal_metadata"]["immutable"] = True

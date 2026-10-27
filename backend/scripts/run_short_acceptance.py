@@ -3,26 +3,11 @@ import sys
 import uuid
 import json
 import time
-import socket
 import urllib.request
 import urllib.error
 import urllib.parse
 import subprocess
 import httpx
-
-# DNS resilience for Supabase cloud hosts
-_orig_getaddrinfo = socket.getaddrinfo
-def _resilient_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    try:
-        return _orig_getaddrinfo(host, port, family, type, proto, flags)
-    except socket.gaierror:
-        if "supabase.co" in str(host):
-            return [
-                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("172.64.149.246", port)),
-                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.18.38.10", port)),
-            ]
-        raise
-socket.getaddrinfo = _resilient_getaddrinfo
 
 NEXUS_PORT = 8000
 DATALAB_PORT = 3004
@@ -225,8 +210,7 @@ async def run_acceptance():
                 "IDENTITY_SERVICE_URL": IDENTITY_URL,
                 "IDENTITY_SERVICE_TOKEN": service_token,
                 "IDENTITY_PROVISIONING_ENABLED": "true",
-                "ALLOW_REAL_SUPABASE_WRITE": "true",
-                "SUPABASE_URL": "https://jtlnmypcrgmzxeuiffup.supabase.co",
+                "ALLOW_REAL_NEON_WRITE": "true",
             })
             p_nexus = subprocess.Popen(
                 ["./.venv/bin/python", "-m", "uvicorn", "backend.main:app", "--port", str(NEXUS_PORT)],
@@ -265,7 +249,6 @@ async def run_acceptance():
             datalab_env = os.environ.copy()
             datalab_env.update({
                 "PORT": str(DATALAB_PORT),
-                "ANCLORA_IDENTITY_ENABLED": "true",
                 "ANCLORA_IDENTITY_ISSUER_URL": IDENTITY_URL,
                 "ANCLORA_IDENTITY_CLIENT_ID": "data-lab",
                 "ANCLORA_IDENTITY_CLIENT_SECRET": datalab_client_secret,
@@ -312,7 +295,6 @@ async def run_acceptance():
             guesthub_env = os.environ.copy()
             guesthub_env.update({
                 "PORT": str(GUESTHUB_PORT),
-                "ANCLORA_IDENTITY_ENABLED": "true",
                 "ANCLORA_IDENTITY_ISSUER_URL": IDENTITY_URL,
                 "ANCLORA_IDENTITY_CLIENT_ID": "guesthub",
                 "ANCLORA_IDENTITY_CLIENT_SECRET": datalab_client_secret,

@@ -5,8 +5,8 @@ from backend.services.access_request_service import AccessRequestService
 from backend.services.captcha_verification_service import CaptchaVerificationError
 
 @pytest.fixture
-def mock_supabase_service():
-    with patch("backend.services.access_request_service.supabase_service") as mock:
+def mock_neon_service():
+    with patch("backend.services.access_request_service.neon_service") as mock:
         yield mock
 
 @pytest.fixture
@@ -15,11 +15,11 @@ def mock_captcha():
         yield mock
 
 @pytest.mark.anyio
-async def test_create_public_request_success(mock_supabase_service, mock_captcha):
+async def test_create_public_request_success(mock_neon_service, mock_captcha):
     # Setup
     mock_captcha.verify.return_value = {"verified": True, "hostname": "test.com", "required": True}
     
-    mock_supabase_service.client.table.return_value.insert.return_value.execute.return_value.data = [
+    mock_neon_service.client.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "test-id", "status": "pending", "product": "synergi", "email": "test@example.com"}
     ]
     
@@ -44,7 +44,7 @@ async def test_create_public_request_success(mock_supabase_service, mock_captcha
     assert result["status"] == "pending"
     mock_captcha.verify.assert_called_once()
     # Verify org_id was injected
-    args, kwargs = mock_supabase_service.client.table.return_value.insert.call_args
+    args, kwargs = mock_neon_service.client.table.return_value.insert.call_args
     assert args[0]["org_id"] == "9d6cb56d-3f21-4f7b-80ea-797a7c2c62cf"
 
 @pytest.mark.anyio

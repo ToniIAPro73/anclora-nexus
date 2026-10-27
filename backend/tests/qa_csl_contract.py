@@ -56,8 +56,8 @@ async def run_qa():
 
     # 4. Cleanup test data
     print("\n4. Cleaning up...")
-    from backend.services.supabase_service import supabase_service
-    supabase_service.client.table("properties").delete().eq("id", prop_id).execute()
+    from backend.services.neon_service import neon_service
+    neon_service.client.table("properties").delete().eq("id", prop_id).execute()
     print("SUCCESS: Cleanup done.")
     
     print("\n--- API CSL QA COMPLETED SUCCESSFULLY ---")

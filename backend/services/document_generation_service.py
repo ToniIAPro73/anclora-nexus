@@ -93,9 +93,9 @@ def generate_from_template(
 
 def fetch_template_required_fields(template_version_id: str, org_id: str) -> list[dict[str, Any]]:
     """Return the list of required field definitions for a template version."""
-    from backend.services.supabase_service import supabase_service  # lazy import
+    from backend.services.neon_service import neon_service  # lazy import
     response = (
-        supabase_service.client
+        neon_service.client
         .table("document_template_fields")
         .select("field_key,label,field_type,required,default_value,source_path")
         .eq("template_version_id", template_version_id)

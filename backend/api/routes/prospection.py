@@ -15,7 +15,7 @@ from backend.api.deps import get_org_id, check_budget_hard_stop, get_current_use
 from backend.api.middleware import verify_org_membership
 from backend.services.buyer_memory_service import buyer_memory_service
 from backend.services.buyer_outreach_service import buyer_outreach_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.models.prospection import (
     ActivityCreate,
     ActivityList,
@@ -41,10 +41,10 @@ router = APIRouter()
 _db_service = None
 
 
-def get_db() -> SupabaseService:
+def get_db() -> NeonService:
     global _db_service
     if _db_service is None:
-        _db_service = SupabaseService()
+        _db_service = NeonService()
     return _db_service
 
 

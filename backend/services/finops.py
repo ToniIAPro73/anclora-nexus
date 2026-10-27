@@ -3,7 +3,7 @@ from datetime import datetime, date
 from uuid import UUID
 
 from backend.config import settings
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.models.finops import (
     BudgetResponse, 
     BudgetUpdate, 
@@ -14,7 +14,7 @@ from backend.models.finops import (
 
 class FinOpsService:
     def __init__(self):
-        self.client = supabase_service.client
+        self.client = neon_service.client
 
     async def get_budget_status(self, org_id: str) -> BudgetResponse:
         # 1. Get Policy
@@ -29,7 +29,7 @@ class FinOpsService:
         # 3. Aggregate Usage for current month
         # Since we don't have a pre-aggregated table in spec (only raw events), we sum raw events.
         # For huge scale this might be slow, but for v0 it's fine.
-        # Supabase API doesn't support SUM directly easily without RPC, but we can fetch and sum or use a view.
+        # Neon API doesn't support SUM directly easily without RPC, but we can fetch and sum or use a view.
         # Given "sdd/features/cost-governance-foundation-spec-v1.md" mentions "Retorna presupuesto y consumo acumulado",
         # and we can't easily change DB schema to add views, we will query raw events.
         # NOTE: To optimize, we could fetch only 'cost_eur' column.

@@ -11,7 +11,7 @@ Usage:
         --org-id <uuid> [--dry-run]
 
 Environment:
-    SUPABASE_URL, SUPABASE_ANON_KEY (or SERVICE_KEY), NEXUS_DOCUMENT_ENCRYPTION_KEY
+    NEON_DATA_API_URL, NEON_JWT_PRIVATE_KEY, NEON_JWT_KEY_ID, NEXUS_DOCUMENT_ENCRYPTION_KEY
 """
 
 import argparse
@@ -161,10 +161,8 @@ def seed(org_id: str, dry_run: bool = False) -> None:
             print(f"  • {t['template_document_type']}: {t['name']} ({len(t['fields'])} fields)")
         return
 
-    from supabase import create_client
-    supabase_url = os.environ["SUPABASE_URL"]
-    supabase_key = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ["SUPABASE_ANON_KEY"]
-    client = create_client(supabase_url, supabase_key)
+    from backend.services.neon_service import neon_service
+    client = neon_service.client
 
     now = datetime.now(timezone.utc).isoformat()
 

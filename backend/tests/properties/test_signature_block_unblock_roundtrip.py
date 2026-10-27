@@ -31,8 +31,6 @@ from hypothesis import given, settings, assume
 from hypothesis import strategies as st
 
 # Ensure env vars are set before importing backend modules
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.services.dms_signature_service import (
     DmsSignatureService,
@@ -49,7 +47,7 @@ HMAC_HEX_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 # ---------------------------------------------------------------------------
-# Fake Supabase client that tracks mutations
+# Fake Neon client that tracks mutations
 # ---------------------------------------------------------------------------
 
 class FakeExecuteResult:
@@ -57,7 +55,7 @@ class FakeExecuteResult:
         self.data = data or []
 
 
-class TrackedSupabaseClient:
+class TrackedNeonClient:
     """Tracks all document updates and audit_log inserts."""
 
     def __init__(self, initial_status: str = "ready_for_signature"):
@@ -74,7 +72,7 @@ class TrackedSupabaseClient:
 
 
 class _DocumentTableProxy:
-    def __init__(self, client: TrackedSupabaseClient):
+    def __init__(self, client: TrackedNeonClient):
         self._client = client
 
     def select(self, *_args):
@@ -100,7 +98,7 @@ class _DocumentTableProxy:
 
 
 class _AuditTableProxy:
-    def __init__(self, client: TrackedSupabaseClient):
+    def __init__(self, client: TrackedNeonClient):
         self._client = client
 
     def insert(self, data: dict):
@@ -178,8 +176,8 @@ class TestSignatureBlockUnblockRoundTrip:
 
         **Validates: Requirements 12.3**
         """
-        client = TrackedSupabaseClient(initial_status="ready_for_signature")
-        service = DmsSignatureService(supabase_client=client, audit_secret=secret)
+        client = TrackedNeonClient(initial_status="ready_for_signature")
+        service = DmsSignatureService(database_client=client, audit_secret=secret)
 
         # Block event
         block_event = SignatureBlockEvent(
@@ -227,8 +225,8 @@ class TestSignatureBlockUnblockRoundTrip:
 
         **Validates: Requirements 12.3**
         """
-        client = TrackedSupabaseClient(initial_status="ready_for_signature")
-        service = DmsSignatureService(supabase_client=client, audit_secret=secret)
+        client = TrackedNeonClient(initial_status="ready_for_signature")
+        service = DmsSignatureService(database_client=client, audit_secret=secret)
 
         for block_signing in sequence:
             event = SignatureBlockEvent(
@@ -265,8 +263,8 @@ class TestSignatureBlockUnblockRoundTrip:
 
         **Validates: Requirements 12.4**
         """
-        client = TrackedSupabaseClient(initial_status="ready_for_signature")
-        service = DmsSignatureService(supabase_client=client, audit_secret=secret)
+        client = TrackedNeonClient(initial_status="ready_for_signature")
+        service = DmsSignatureService(database_client=client, audit_secret=secret)
 
         for block_signing in sequence:
             event = SignatureBlockEvent(
@@ -299,8 +297,8 @@ class TestSignatureBlockUnblockRoundTrip:
 
         **Validates: Requirements 12.4**
         """
-        client = TrackedSupabaseClient(initial_status="ready_for_signature")
-        service = DmsSignatureService(supabase_client=client, audit_secret=secret)
+        client = TrackedNeonClient(initial_status="ready_for_signature")
+        service = DmsSignatureService(database_client=client, audit_secret=secret)
 
         for block_signing in sequence:
             event = SignatureBlockEvent(
@@ -343,8 +341,8 @@ class TestSignatureBlockUnblockRoundTrip:
 
         **Validates: Requirements 12.4**
         """
-        client = TrackedSupabaseClient(initial_status="ready_for_signature")
-        service = DmsSignatureService(supabase_client=client, audit_secret=secret)
+        client = TrackedNeonClient(initial_status="ready_for_signature")
+        service = DmsSignatureService(database_client=client, audit_secret=secret)
 
         event = SignatureBlockEvent(
             document_id=document_id,

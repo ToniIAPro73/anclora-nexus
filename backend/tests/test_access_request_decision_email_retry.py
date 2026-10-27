@@ -9,7 +9,7 @@ from backend.tests.test_access_request_review_service import (
     REVIEWER_ID,
     MockAuditService,
     MockEmailService,
-    MockSupabaseClient,
+    MockNeonClient,
     access_request_record,
 )
 
@@ -44,8 +44,8 @@ async def test_retry_decision_email_after_failed_status(monkeypatch, service):
     email_service = MockEmailService()
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -78,8 +78,8 @@ async def test_retry_decision_email_after_failed_status(monkeypatch, service):
 async def test_retry_decision_email_pending_request_fails(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     with pytest.raises(AccessRequestInvalidTransitionError):
@@ -110,8 +110,8 @@ async def test_retry_decision_email_already_sent_fails(monkeypatch, service):
         }
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
 
     with pytest.raises(AccessRequestInvalidTransitionError):
@@ -141,8 +141,8 @@ async def test_retry_failure_sanitizes_provider_error(monkeypatch, service):
         }
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",

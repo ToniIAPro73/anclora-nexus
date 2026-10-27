@@ -6,8 +6,6 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 # Stub pydantic_settings and backend.config before import so no deps needed
 _fake_settings = MagicMock()

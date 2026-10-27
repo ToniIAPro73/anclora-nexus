@@ -1,8 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import type { AuthChangeEvent } from '@supabase/supabase-js'
-import supabase from '@/lib/supabase'
+import type { IdentityAuthEvent } from '@/lib/neon-data-client'
+import database from '@/lib/neon-data-client'
 
 export type OrgRole = 'owner' | 'manager' | 'agent'
 export type MembershipStatus = 'active' | 'pending' | 'suspended' | 'removed'
@@ -38,7 +38,7 @@ export function OrgProvider({ children, initialMembership = null }: OrgProviderP
   const fetchMembership = async () => {
     try {
       setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await database.auth.getUser()
       
       if (!user) {
         setMembership(null)
@@ -46,7 +46,7 @@ export function OrgProvider({ children, initialMembership = null }: OrgProviderP
         return
       }
 
-      const { data: profileData } = await supabase
+      const { data: profileData } = await database
         .from('user_profiles')
         .select('org_id')
         .eq('id', user.id)
@@ -54,7 +54,7 @@ export function OrgProvider({ children, initialMembership = null }: OrgProviderP
 
       const preferredOrgId = profileData?.org_id || null
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await database
         .from('organization_members')
         .select('*')
         .eq('user_id', user.id)
@@ -90,7 +90,7 @@ export function OrgProvider({ children, initialMembership = null }: OrgProviderP
     }
 
     // Listen for auth changes (login/logout), but not every route change
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
+    const { data: { subscription } } = database.auth.onAuthStateChange((event: IdentityAuthEvent) => {
       // Only refetch on actual auth events (sign out, sign in), not route changes
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         fetchMembership()

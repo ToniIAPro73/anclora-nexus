@@ -3,13 +3,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 _DEFAULT_RETENTION_DAYS = 2555  # 7 years
 
 
 def _table(name: str):
-    return supabase_service.client.table(name)
+    return neon_service.client.table(name)
 
 
 def get_retention_policy(org_id: str, template_document_type: str | None = None) -> dict[str, Any]:

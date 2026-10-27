@@ -1,45 +1,29 @@
-# Checklist de validación — Anclora Identity para Nexus (2026-10-27)
+# Cutover runtime — Anclora Nexus
 
-**Repositorio:** anclora-nexus  
-**Rama:** development  
-**Alcance:** añadir autenticación OIDC de Anclora Identity como piloto gradual; conservar el login Supabase como ruta heredada hasta validar y autorizar el corte. No se modificaron bases de datos ni datos de usuarios.
+**Rama:** `development`
+**Estado del código:** preparado localmente y pendiente de validación del usuario.
+**Runtime objetivo:** Vercel, Neon PostgreSQL/Neon Data API, Anclora Identity y Vercel Blob.
 
-## Cambios incluidos
+## Implementado en este cambio
 
-- Inicio OIDC con Authorization Code + PKCE, callback validado y cookie de aplicación firmada, `HttpOnly`.
-- Control de membresía de `anclora-nexus` en Identity y mapeo de email verificado al perfil y organización Nexus ya existentes.
-- Emisión de JWT ES256 de corta duración para el acceso al frontend/backend Neon; el backend conserva compatibilidad temporal con tokens Supabase.
-- Bandera explícita desactivada por defecto; la activación requiere que las variables servidor y cliente coincidan.
-- Rutas de login y callbacks heredados deshabilitadas cuando se activa el piloto Identity.
-- Documentación de configuración Preview y limitaciones conocidas.
-- El inicio OIDC solicita `prompt=login` para que, después de cerrar la sesión local de Nexus, Identity vuelva a mostrar el formulario de credenciales y permita cambiar de cuenta.
+- El frontend y backend usan Neon Data API para operaciones de aplicación.
+- La autenticación y las sesiones de usuario usan Anclora Identity.
+- Los documentos y avatares usan Vercel Blob.
+- Se retiraron los clientes, rutas y credenciales de proveedores anteriores del runtime.
+- Se actualizaron las políticas de Neon para utilizar los claims de identidad compatibles con Neon.
+- Los scripts de operación de datos ahora se conectan a Neon.
 
-## Validación realizada
+## Validación y límites
 
-| Comprobación | Resultado |
-| --- | --- |
-| `npm run typecheck -w frontend` | PASS |
-| `npm exec --workspace frontend vitest -- run tests/anclora-identity.test.ts` | PASS — 2 pruebas |
-| `npm run build -w frontend` | PASS |
-| `.venv/bin/python -m pytest backend/tests/test_neon_tokens.py -q` | PASS — 4 pruebas |
-| `git diff --cached --check` con `core.whitespace=cr-at-eol` | PASS; lockfile mantiene finales CRLF existentes |
-| Revisión del flujo de logout/login para el cambio `prompt=login` | Código revisado; la prueba interactiva con otra cuenta queda pendiente del deployment |
+- `cd backend && ../.venv/bin/python -m pytest -q`: **964 passed, 1 skipped**. The skipped FinOps QA mutates Neon data and now requires explicit opt-in with `NEON_FINOPS_LIVE_TESTS=1`.
+- Backend Python compilation: `python3 -m compileall -q backend` passed.
+- Frontend checks passed: `npm run lint`, `npm test -w frontend` (19 tests), `npm run typecheck -w frontend`, `npm run build`, and `npm run ops:guesthub-pilot:check-env`.
+- DMS route tests use an in-memory Blob stub; they do not require production Blob credentials.
+- No remote database migration was applied and no deployment was performed in this validation pass.
+- Historical documents and SQL retain Supabase references where they describe the old architecture. They are archived evidence, not runtime configuration; the active migration guide is `neon/migrations/README.md`.
 
-## Pendiente de revisión en Preview
+## Siguiente validación
 
-| # | Dónde | Validación | Resultado esperado | Bloqueante |
-| --- | --- | --- | --- | --- |
-| 1 | Vercel Preview + Identity Preview | Configurar variables OIDC, redirección allowlisted, secreto cliente y clave ES256 compartida con el backend/Neon; aprovisionar la cuenta persistente `qa.nexus@anclora.local`, perfil/membresía QA y organización QA dedicada | Login, callback, sesión, rutas protegidas y permisos de la organización QA funcionan; sin acceso a otros tenants | Sí, antes de activar el piloto |
-| 2 | Preview | Cerrar sesión de Nexus, volver a iniciar sesión y comprobar que los JWT de API Neon aceptan únicamente el sujeto/organización QA | Flujos autorizados funcionan; sesión de aplicación termina al salir | Sí, antes de retirar Supabase Auth |
-
-## Limitaciones conocidas
-
-- Este primer piloto no implementa federación Google/GitHub, alta de cuenta ni recuperación de contraseña en Identity. No retirar Supabase Auth hasta acordar y validar cómo cubrir estas capacidades.
-- La bandera permanece desactivada por defecto; producción no se cambia en este commit.
-- No se hizo promoción a staging/production/main.
-
-## Decisión de Toni
-
-- [x] Cambios revisados y validados en development
-- [ ] Validado en Preview con identidad y organización QA persistentes
-- [ ] Autorizar promoción/corte de producción
+- Revisar el flujo de Identity y las operaciones de datos/archivos con la cuenta QA persistente.
+- Aplicar las migraciones Neon conforme al proceso gobernado y verificar sus políticas.
+- Validar el build y el deployment de Vercel; mantener cambios sin commit hasta la validación de Toni.

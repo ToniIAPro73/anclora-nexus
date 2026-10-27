@@ -5,8 +5,6 @@ import asyncio
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.services.dms_signature_service import (
     DmsSignatureService,
@@ -22,7 +20,7 @@ class FakeExecuteResult:
 
 
 class FakeQuery:
-    """Chainable mock for Supabase query builder."""
+    """Chainable mock for Neon query builder."""
 
     def __init__(self, data=None):
         self._data = data
@@ -49,7 +47,7 @@ class FakeQuery:
 
 
 class FakeClient:
-    """Minimal Supabase client mock."""
+    """Minimal Neon client mock."""
 
     def __init__(self, document_status="ready_for_signature"):
         self._document_status = document_status
@@ -101,7 +99,7 @@ class FakeAuditQuery:
 def _make_service(document_status="ready_for_signature"):
     client = FakeClient(document_status)
     service = DmsSignatureService(
-        supabase_client=client,
+        database_client=client,
         audit_secret="test-audit-secret-key-12345",
     )
     return service, client

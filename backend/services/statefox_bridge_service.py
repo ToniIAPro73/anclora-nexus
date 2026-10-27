@@ -17,7 +17,7 @@ from backend.models.prospection import PropertyCreate
 from backend.services.ingestion_service import ingestion_service
 from backend.services.prospection_service import prospection_service
 from backend.services.statefox_adapter import classify_statefox_targets
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 PROPERTY_BLOCK_RE = re.compile(
@@ -235,7 +235,7 @@ def _property_exists(org_id: str, source_url: Optional[str]) -> bool:
     for table in ("properties", "prospected_properties"):
         try:
             result = (
-                supabase_service.client.table(table)
+                neon_service.client.table(table)
                 .select("id")
                 .eq("org_id", org_id)
                 .eq("source_url", source_url)

@@ -2,14 +2,14 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from backend.services.llm_service import LLMService
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
-async def run_lead_intake(data: Dict[str, Any], llm: LLMService, db: SupabaseService) -> Dict[str, Any]:
+async def run_lead_intake(data: Dict[str, Any], llm: LLMService, db: NeonService) -> Dict[str, Any]:
     """
     Skill for processing new real estate leads.
     1. Summarize and prioritize with LLM.
     2. Generate luxury-toned initial contact drafts.
-    3. Persist to Supabase.
+    3. Persist to Neon.
     4. Create follow-up tasks.
     """
     

@@ -7,7 +7,7 @@ from backend.tests.test_access_request_review_service import (
     REVIEWER_ID,
     MockAuditService,
     MockEmailService,
-    MockSupabaseClient,
+    MockNeonClient,
     access_request_record,
 )
 
@@ -21,8 +21,8 @@ def service():
 async def test_approve_prepares_invite_lifecycle(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -59,8 +59,8 @@ async def test_approve_preserves_existing_invite_intent(monkeypatch, service):
     ]
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -113,8 +113,8 @@ async def test_get_lifecycle_derives_email_status_from_audit(monkeypatch, servic
         }
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
 
     lifecycle = await service.get_lifecycle(ORG_ID, "request-1")
@@ -129,8 +129,8 @@ async def test_get_lifecycle_derives_email_status_from_audit(monkeypatch, servic
 async def test_pending_lifecycle_is_not_retryable(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     lifecycle = await service.get_lifecycle(ORG_ID, "request-1")

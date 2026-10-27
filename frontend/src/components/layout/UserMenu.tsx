@@ -2,14 +2,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LogOut, Settings, UserCircle, ChevronDown } from 'lucide-react'
-import supabase from '@/lib/supabase'
-import { User } from '@supabase/supabase-js'
+import database from '@/lib/neon-data-client'
+import type { IdentityUser } from '@/lib/neon-data-client'
 import { useI18n } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<IdentityUser | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string>('/brand/anclora-nexus.png')
   const { t } = useI18n()
   const router = useRouter()
@@ -17,11 +17,11 @@ export function UserMenu() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await database.auth.getUser()
       setUser(user)
       if (!user) return
 
-      const { data: profile } = await supabase
+      const { data: profile } = await database
         .from('user_profiles')
         .select('avatar_url')
         .eq('id', user.id)
@@ -42,11 +42,11 @@ export function UserMenu() {
   }, [])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await database.auth.signOut()
     router.push('/login')
   }
 
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Toni'
+  const userName = String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Toni')
 
   return (
     <div className="relative" ref={menuRef}>

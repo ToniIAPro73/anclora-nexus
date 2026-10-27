@@ -106,11 +106,11 @@ def test_ingestion_service_success_updates_processed_status() -> None:
 
     mock_table = MagicMock()
     mock_table.insert.return_value.execute.return_value.data = [{"id": "lead-1"}]
-    mock_supabase = MagicMock()
-    mock_supabase.client.table.return_value = mock_table
-    service.client = mock_supabase.client
+    mock_neon = MagicMock()
+    mock_neon.client.table.return_value = mock_table
+    service.client = mock_neon.client
 
-    with patch("backend.services.ingestion_service.supabase_service", mock_supabase), \
+    with patch("backend.services.ingestion_service.neon_service", mock_neon), \
          patch.object(service, "_get_existing_event", return_value=None), \
          patch.object(service, "_register_received", return_value={"id": "event-1"}), \
          patch.object(service, "_ensure_connector_enabled", return_value=None), \
@@ -186,11 +186,11 @@ def test_ingestion_service_persists_hnwi_fields_and_logs_finops() -> None:
 
     mock_table = MagicMock()
     mock_table.insert.return_value.execute.return_value.data = [{"id": "lead-1"}]
-    mock_supabase = MagicMock()
-    mock_supabase.client.table.return_value = mock_table
-    service.client = mock_supabase.client
+    mock_neon = MagicMock()
+    mock_neon.client.table.return_value = mock_table
+    service.client = mock_neon.client
 
-    with patch("backend.services.ingestion_service.supabase_service", mock_supabase), \
+    with patch("backend.services.ingestion_service.neon_service", mock_neon), \
          patch("backend.services.ingestion_service.finops_service.log_usage_event", new_callable=AsyncMock) as mock_finops, \
          patch.object(service, "_get_existing_event", return_value=None), \
          patch.object(service, "_register_received", return_value={"id": "event-1"}), \

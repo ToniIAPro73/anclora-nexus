@@ -1,4 +1,4 @@
-import supabase from './supabase'
+import database from './neon-data-client'
 import { buildBackendUrl } from './backend-url'
 
 export type FeedChannelName = 'idealista' | 'fotocasa' | 'rightmove' | 'kyero'
@@ -81,7 +81,7 @@ export interface FeedChannelConfig {
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await database.auth.getSession()
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${session?.access_token || ''}`,

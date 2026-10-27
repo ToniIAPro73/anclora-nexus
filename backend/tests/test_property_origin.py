@@ -12,7 +12,7 @@ from backend.services.prospection_service import ProspectionService
 
 ORG_A = str(uuid4())
 
-class MockSupabaseQuery:
+class MockNeonQuery:
     def __init__(self, data: list):
         self._data = data
 
@@ -46,8 +46,8 @@ async def test_create_property_with_origin():
         source_portal=PropertySourcePortal.IDEALISTA
     )
 
-    mock_query = MockSupabaseQuery([])
-    with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+    mock_query = MockNeonQuery([])
+    with patch("backend.services.prospection_service.neon_service") as mock_sb:
         mock_sb.client.table.return_value = mock_query
         result = await service.create_property(ORG_A, prop_data)
 
@@ -65,8 +65,8 @@ async def test_create_property_default_origin():
         # source_system defaults to manual
     )
 
-    mock_query = MockSupabaseQuery([])
-    with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+    mock_query = MockNeonQuery([])
+    with patch("backend.services.prospection_service.neon_service") as mock_sb:
         mock_sb.client.table.return_value = mock_query
         result = await service.create_property(ORG_A, prop_data)
 
@@ -84,8 +84,8 @@ async def test_property_organization_isolation():
         price=Decimal("1000000")
     )
 
-    mock_query = MockSupabaseQuery([])
-    with patch("backend.services.prospection_service.supabase_service") as mock_sb:
+    mock_query = MockNeonQuery([])
+    with patch("backend.services.prospection_service.neon_service") as mock_sb:
         mock_sb.client.table.return_value = mock_query
         # Create in ORG_A
         await service.create_property(ORG_A, prop_data)

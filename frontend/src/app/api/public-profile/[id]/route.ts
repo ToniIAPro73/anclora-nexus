@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createNeonDataClient } from '@/lib/neon-data-server'
-import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
@@ -13,13 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
-    const client = process.env.DATABASE_PROVIDER === 'neon'
-      ? createNeonDataClient('service_role', 'nexus-public-profile-route')
-      : createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } }
-        )
+    const client = createNeonDataClient('service_role', 'nexus-public-profile-route')
 
     const { data, error } = await client
       .from('user_profiles')

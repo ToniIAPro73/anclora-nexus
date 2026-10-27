@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 from backend.services.email_delivery_service import get_email_transport_summary, send_email_native
 from backend.services.llm_service import llm_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 
 
 def _safe_str(value: Any) -> str:
@@ -73,7 +73,7 @@ def _fallback_email_body(lead: Dict[str, Any]) -> str:
 
 async def add_interaction(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
     tipo: str,
@@ -97,7 +97,7 @@ async def add_interaction(
 
 async def get_interactions(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
     limit: int = 20,
@@ -114,7 +114,7 @@ async def get_interactions(
     return result.data or []
 
 
-async def _get_lead(db: SupabaseService, org_id: str, lead_id: str) -> Optional[Dict[str, Any]]:
+async def _get_lead(db: NeonService, org_id: str, lead_id: str) -> Optional[Dict[str, Any]]:
     result = (
         db.client.table("leads")
         .select("*")
@@ -130,7 +130,7 @@ async def _get_lead(db: SupabaseService, org_id: str, lead_id: str) -> Optional[
 
 async def generate_lead_outreach(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
 ) -> Dict[str, Any]:
@@ -192,7 +192,7 @@ async def generate_lead_outreach(
 
 async def build_supervised_send_payload(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
     transport: str = "auto",
@@ -286,7 +286,7 @@ async def build_supervised_send_payload(
 
 async def confirm_supervised_send(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
     interaction_id: str,
@@ -320,7 +320,7 @@ async def confirm_supervised_send(
 
 async def get_lead_outreach_snapshot(
     *,
-    db: SupabaseService,
+    db: NeonService,
     org_id: str,
     lead_id: str,
 ) -> Optional[Dict[str, Any]]:

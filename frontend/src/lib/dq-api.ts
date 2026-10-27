@@ -1,5 +1,5 @@
 import { api } from './api'
-import supabase from './supabase'
+import database from './neon-data-client'
 
 export type EntityType = 'lead' | 'property'
 export type IssueStatus = 'open' | 'in_review' | 'resolved' | 'ignored'
@@ -65,7 +65,7 @@ export const dqApi = {
   getMetrics: () => api.get<DQMetrics>('/api/dq/metrics'),
 
   getCandidates: async (entityType?: EntityType) => {
-    let query = supabase.from('dq_entity_candidates').select('*')
+    let query = database.from('dq_entity_candidates').select('*')
     if (entityType) query = query.eq('entity_type', entityType)
     const { data, error } = await query.order('similarity_score', { ascending: false })
     if (error) throw new Error(error.message)

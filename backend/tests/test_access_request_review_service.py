@@ -111,7 +111,7 @@ class MockAccessRequestQuery:
         return MockResult(matches)
 
 
-class MockSupabaseClient:
+class MockNeonClient:
     def __init__(self, rows, audit_rows=None):
         self.rows = rows
         self.audit_rows = audit_rows or []
@@ -160,8 +160,8 @@ async def test_list_requests_filters_by_status_and_product(monkeypatch, service)
         access_request_record("request-3", status="pending", product="data_lab"),
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     result = await service.list_requests(
@@ -196,8 +196,8 @@ async def test_list_requests_applies_operations_filters(monkeypatch, service):
         },
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     result = await service.list_requests(
@@ -217,8 +217,8 @@ async def test_list_requests_applies_operations_filters(monkeypatch, service):
 async def test_get_request_existing(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     result = await service.get_request(ORG_ID, "request-1")
@@ -229,8 +229,8 @@ async def test_get_request_existing(monkeypatch, service):
 @pytest.mark.anyio
 async def test_get_request_missing_raises_not_found(monkeypatch, service):
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient([]),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient([]),
     )
 
     with pytest.raises(AccessRequestNotFoundError):
@@ -265,8 +265,8 @@ async def test_list_audit_events_returns_request_scoped_events(monkeypatch, serv
         },
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
 
     result = await service.list_audit_events(ORG_ID, "request-1")
@@ -279,8 +279,8 @@ async def test_list_audit_events_returns_request_scoped_events(monkeypatch, serv
 async def test_approve_pending_sets_review_fields(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     result = await service.approve_request(
@@ -304,8 +304,8 @@ async def test_approve_sends_email_after_state_update(monkeypatch, service):
     email_service = MockEmailService()
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -343,8 +343,8 @@ async def test_approve_sends_email_after_state_update(monkeypatch, service):
 async def test_approve_failed_provisioning_does_not_create_local_token(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
@@ -386,8 +386,8 @@ async def test_retry_failed_provisioning_reuses_approved_request(monkeypatch, se
     ]
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_audit_service",
@@ -428,8 +428,8 @@ async def test_retry_provisioning_rejects_existing_identity(monkeypatch, service
         }
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     with pytest.raises(AccessRequestInvalidTransitionError):
@@ -440,8 +440,8 @@ async def test_retry_provisioning_rejects_existing_identity(monkeypatch, service
 async def test_reject_pending_sets_rejection_reason(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     result = await service.reject_request(
@@ -466,8 +466,8 @@ async def test_reject_sends_email_after_state_update(monkeypatch, service):
     email_service = MockEmailService()
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -503,8 +503,8 @@ async def test_email_failure_does_not_revert_decision_and_logs_failure(monkeypat
     email_service = MockEmailService(fail=True)
     audit_service = MockAuditService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -542,8 +542,8 @@ async def test_audit_failure_does_not_break_approval(monkeypatch, service):
     rows = [access_request_record("request-1")]
     email_service = MockEmailService()
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.access_request_email_service",
@@ -575,8 +575,8 @@ def test_reject_decision_requires_rejection_reason():
 async def test_approve_terminal_request_fails(monkeypatch, service, current_status):
     rows = [access_request_record("request-1", status=current_status)]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     with pytest.raises(AccessRequestInvalidTransitionError):
@@ -593,8 +593,8 @@ async def test_approve_terminal_request_fails(monkeypatch, service, current_stat
 async def test_reject_terminal_request_fails(monkeypatch, service, current_status):
     rows = [access_request_record("request-1", status=current_status)]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     with pytest.raises(AccessRequestInvalidTransitionError):

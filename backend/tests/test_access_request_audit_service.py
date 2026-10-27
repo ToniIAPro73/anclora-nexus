@@ -7,7 +7,7 @@ ORG_ID = "9d6cb56d-3f21-4f7b-80ea-797a7c2c62cf"
 REQUEST_ID = "request-1"
 
 
-class MockSupabaseService:
+class MockNeonService:
     def __init__(self):
         self.inserted = []
 
@@ -22,10 +22,10 @@ class MockSupabaseService:
     ["access_request.created", "access_request.approved", "access_request.rejected"],
 )
 async def test_log_access_request_events(monkeypatch, event_type):
-    mock_supabase = MockSupabaseService()
+    mock_neon = MockNeonService()
     monkeypatch.setattr(
-        "backend.services.access_request_audit_service.supabase_service",
-        mock_supabase,
+        "backend.services.access_request_audit_service.neon_service",
+        mock_neon,
     )
 
     service = AccessRequestAuditService()
@@ -39,10 +39,10 @@ async def test_log_access_request_events(monkeypatch, event_type):
     )
 
     assert result["action"] == event_type
-    assert mock_supabase.inserted[0]["org_id"] == ORG_ID
-    assert mock_supabase.inserted[0]["resource_id"] == REQUEST_ID
-    assert mock_supabase.inserted[0]["resource_type"] == "access_request"
-    assert mock_supabase.inserted[0]["details"] == {"product": "synergi"}
+    assert mock_neon.inserted[0]["org_id"] == ORG_ID
+    assert mock_neon.inserted[0]["resource_id"] == REQUEST_ID
+    assert mock_neon.inserted[0]["resource_type"] == "access_request"
+    assert mock_neon.inserted[0]["details"] == {"product": "synergi"}
 
 
 @pytest.mark.anyio

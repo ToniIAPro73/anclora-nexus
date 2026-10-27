@@ -240,7 +240,7 @@ class AdvisorContractValidatorService:
         Inserts an alert into automation_alerts table (Requirement 10.5).
         """
         try:
-            from backend.services.supabase_service import supabase_service
+            from backend.services.neon_service import neon_service
 
             now = datetime.now(timezone.utc).isoformat()
             row = {
@@ -265,7 +265,7 @@ class AdvisorContractValidatorService:
                 "updated_at": now,
                 "resolved_at": None,
             }
-            supabase_service.client.table("automation_alerts").insert(row).execute()
+            neon_service.client.table("automation_alerts").insert(row).execute()
             logger.info(
                 "Command Center notified: Advisor AI unreachable for document %s",
                 document_id,

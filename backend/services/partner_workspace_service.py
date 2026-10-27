@@ -10,7 +10,7 @@ from backend.models.partner_workspaces import (
     PublicPartnerWorkspaceProfileUpdate,
     PublicSharedOpportunityStatusUpdate,
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 
 class PartnerWorkspaceService:
@@ -78,7 +78,7 @@ class PartnerWorkspaceService:
 
     def _get_workspace_by_admission_id(self, org_id: str, admission_id: str) -> Optional[Dict[str, Any]]:
         response = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("org_id", org_id)
             .eq("admission_id", admission_id)
@@ -89,7 +89,7 @@ class PartnerWorkspaceService:
 
     def _get_admission_by_id(self, org_id: str, admission_id: str) -> Optional[Dict[str, Any]]:
         response = (
-            supabase_service.client.table("partner_admissions")
+            neon_service.client.table("partner_admissions")
             .select("*")
             .eq("org_id", org_id)
             .eq("id", admission_id)
@@ -100,7 +100,7 @@ class PartnerWorkspaceService:
 
     def _list_workspace_opportunities(self, workspace_id: str) -> list[dict[str, Any]]:
         response = (
-            supabase_service.client.table("synergi_partner_opportunities")
+            neon_service.client.table("synergi_partner_opportunities")
             .select("*")
             .eq("workspace_id", workspace_id)
             .order("created_at", desc=True)
@@ -110,7 +110,7 @@ class PartnerWorkspaceService:
 
     def _list_workspace_activity(self, workspace_id: str) -> list[dict[str, Any]]:
         response = (
-            supabase_service.client.table("synergi_partner_activity")
+            neon_service.client.table("synergi_partner_activity")
             .select("*")
             .eq("workspace_id", workspace_id)
             .order("created_at", desc=True)
@@ -121,7 +121,7 @@ class PartnerWorkspaceService:
 
     def _list_shared_opportunities(self, workspace_id: str) -> list[dict[str, Any]]:
         response = (
-            supabase_service.client.table("synergi_partner_shared_opportunities")
+            neon_service.client.table("synergi_partner_shared_opportunities")
             .select("*")
             .eq("workspace_id", workspace_id)
             .order("created_at", desc=True)
@@ -139,7 +139,7 @@ class PartnerWorkspaceService:
         description: Optional[str] = None,
         related_opportunity_id: Optional[str] = None,
     ) -> None:
-        supabase_service.client.table("synergi_partner_activity").insert(
+        neon_service.client.table("synergi_partner_activity").insert(
             {
                 "org_id": org_id,
                 "workspace_id": workspace_id,
@@ -276,14 +276,14 @@ class PartnerWorkspaceService:
             "created_at": now,
             "updated_at": now,
         }
-        created = supabase_service.client.table("synergi_partner_workspaces").insert(record).execute()
+        created = neon_service.client.table("synergi_partner_workspaces").insert(record).execute()
         row = created.data[0]
         row["launch_url"] = self._build_launch_url(str(row["access_token"]))
         return row
 
     async def get_workspace_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         workspace_response = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("access_token", token)
             .limit(1)
@@ -314,7 +314,7 @@ class PartnerWorkspaceService:
             )
         workspace["last_seen_at"] = now
         (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .update(update_payload)
             .eq("id", workspace["id"])
             .execute()
@@ -323,7 +323,7 @@ class PartnerWorkspaceService:
 
     async def create_opportunity_from_token(self, payload: PublicPartnerOpportunityCreate) -> Optional[Dict[str, Any]]:
         workspace_response = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("access_token", payload.token)
             .limit(1)
@@ -347,7 +347,7 @@ class PartnerWorkspaceService:
             "created_at": now,
             "updated_at": now,
         }
-        response = supabase_service.client.table("synergi_partner_opportunities").insert(record).execute()
+        response = neon_service.client.table("synergi_partner_opportunities").insert(record).execute()
         created = response.data[0] if response.data else None
         if created:
             self._append_activity(
@@ -362,7 +362,7 @@ class PartnerWorkspaceService:
 
     async def update_profile_from_token(self, payload: PublicPartnerWorkspaceProfileUpdate) -> Optional[Dict[str, Any]]:
         workspace_response = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("access_token", payload.token)
             .limit(1)
@@ -383,7 +383,7 @@ class PartnerWorkspaceService:
             "updated_at": now,
         }
         updated = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .update(update_payload)
             .eq("id", workspace["id"])
             .execute()
@@ -405,7 +405,7 @@ class PartnerWorkspaceService:
         payload: PublicSharedOpportunityStatusUpdate,
     ) -> Optional[Dict[str, Any]]:
         workspace_response = (
-            supabase_service.client.table("synergi_partner_workspaces")
+            neon_service.client.table("synergi_partner_workspaces")
             .select("*")
             .eq("access_token", payload.token)
             .limit(1)
@@ -416,7 +416,7 @@ class PartnerWorkspaceService:
             return None
 
         updated = (
-            supabase_service.client.table("synergi_partner_shared_opportunities")
+            neon_service.client.table("synergi_partner_shared_opportunities")
             .update({"status": payload.status.value, "updated_at": self._now()})
             .eq("workspace_id", workspace["id"])
             .eq("id", shared_opportunity_id)

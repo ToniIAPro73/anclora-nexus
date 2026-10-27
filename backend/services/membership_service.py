@@ -6,13 +6,13 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from backend.models.membership import (
-    Membership, 
-    MembershipCreate, 
-    MembershipUpdate, 
-    UserRole, 
+    Membership,
+    MembershipCreate,
+    MembershipUpdate,
+    UserRole,
     MembershipStatus
 )
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 
 class MembershipService:
     """
@@ -30,7 +30,7 @@ class MembershipService:
         """
         Returns active owner membership ids using case-insensitive checks.
         """
-        rows = supabase_service.client.table("organization_members")\
+        rows = neon_service.client.table("organization_members")\
             .select("id,role,status")\
             .eq("org_id", str(org_id))\
             .execute()
@@ -66,7 +66,7 @@ class MembershipService:
         invited_email = str(payload.email).strip().lower()
 
         # Resolve invited email to an existing user profile if available.
-        profile = supabase_service.client.table("user_profiles")\
+        profile = neon_service.client.table("user_profiles")\
             .select("id,email")\
             .ilike("email", invited_email)\
             .limit(1)\
@@ -75,7 +75,7 @@ class MembershipService:
         invited_user_id = str(profile.data[0]["id"]) if profile.data else None
 
         # Check duplicates by invited_email first (covers pre-signup invites).
-        existing_by_email = supabase_service.client.table("organization_members")\
+        existing_by_email = neon_service.client.table("organization_members")\
             .select("*")\
             .eq("org_id", str(org_id))\
             .eq("invited_email", invited_email)\
@@ -91,7 +91,7 @@ class MembershipService:
         # If the user already exists, also check by user_id.
         existing_by_user = None
         if invited_user_id:
-            existing_by_user = supabase_service.client.table("organization_members")\
+            existing_by_user = neon_service.client.table("organization_members")\
                 .select("*")\
                 .eq("org_id", str(org_id))\
                 .eq("user_id", invited_user_id)\
@@ -103,10 +103,10 @@ class MembershipService:
                     raise HTTPException(status_code=409, detail="User is already an active member of this organization")
                 if existing_member["status"] == MembershipStatus.PENDING:
                     raise HTTPException(status_code=409, detail="User already has a pending invitation")
-        
+
         # Generate code
         invitation_code = self._generate_invitation_code()
-        
+
         data = {
             "org_id": str(org_id),
             "user_id": invited_user_id,
@@ -127,7 +127,7 @@ class MembershipService:
 
         if reusable:
             # Reactivate a previously removed/suspended member as a new pending invitation.
-            result = supabase_service.client.table("organization_members")\
+            result = neon_service.client.table("organization_members")\
                 .update({
                     "user_id": invited_user_id,
                     "invited_email": invited_email,
@@ -142,7 +142,7 @@ class MembershipService:
                 .eq("org_id", str(org_id))\
                 .execute()
         else:
-            result = supabase_service.client.table("organization_members").insert(data).execute()
+            result = neon_service.client.table("organization_members").insert(data).execute()
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to create invitation")
             
@@ -154,13 +154,13 @@ class MembershipService:
         """
         Lists members of an organization with filtering and pagination.
         """
-        query = supabase_service.client.table("organization_members").select("*", count="exact").eq("org_id", str(org_id))
-        
+        query = neon_service.client.table("organization_members").select("*", count="exact").eq("org_id", str(org_id))
+
         if role:
             query = query.eq("role", role)
         if status:
             query = query.eq("status", status)
-            
+
         result = query.range(offset, offset + limit - 1).execute()
 
         members = result.data or []
@@ -179,7 +179,7 @@ class MembershipService:
 
         profiles_by_id = {}
         if user_ids:
-            profiles = supabase_service.client.table("user_profiles")\
+            profiles = neon_service.client.table("user_profiles")\
                 .select("id,email,full_name,avatar_url")\
                 .in_("id", list(dict.fromkeys(user_ids)))\
                 .execute()
@@ -215,7 +215,7 @@ class MembershipService:
         # Validate last owner check
         if target_role and target_role != UserRole.OWNER.value:
             # Check if this member IS an owner
-            current = supabase_service.client.table("organization_members")\
+            current = neon_service.client.table("organization_members")\
                 .select("*")\
                 .eq("id", str(member_id))\
                 .eq("org_id", str(org_id))\
@@ -227,7 +227,7 @@ class MembershipService:
                 if len(owner_ids) <= 1:
                     raise HTTPException(status_code=400, detail="Cannot change role of the last owner")
         elif target_role == UserRole.OWNER.value:
-            current = supabase_service.client.table("organization_members")\
+            current = neon_service.client.table("organization_members")\
                 .select("*")\
                 .eq("id", str(member_id))\
                 .eq("org_id", str(org_id))\
@@ -247,19 +247,19 @@ class MembershipService:
         if "status" in update_data and isinstance(update_data["status"], MembershipStatus):
             update_data["status"] = update_data["status"].value
         update_data["updated_at"] = datetime.utcnow().isoformat()
-        
-        result = supabase_service.client.table("organization_members")\
+
+        result = neon_service.client.table("organization_members")\
             .update(update_data)\
             .eq("id", str(member_id))\
             .eq("org_id", str(org_id))\
             .execute()
-            
+
         if not result.data:
             raise HTTPException(status_code=404, detail="Member not found")
 
         updated_member = result.data[0]
         if payload.role and updated_member.get("user_id"):
-            supabase_service.client.table("user_profiles")\
+            neon_service.client.table("user_profiles")\
                 .update({"role": payload.role})\
                 .eq("id", str(updated_member["user_id"]))\
                 .execute()
@@ -270,7 +270,7 @@ class MembershipService:
         """
         Removes a member from an organization.
         """
-        existing = supabase_service.client.table("organization_members")\
+        existing = neon_service.client.table("organization_members")\
             .select("id,role,status")\
             .eq("id", str(member_id))\
             .eq("org_id", str(org_id))\
@@ -282,7 +282,7 @@ class MembershipService:
         if str(member.get("role") or "").strip().lower() == UserRole.OWNER.value:
             raise HTTPException(status_code=400, detail="Cannot remove owner member")
 
-        supabase_service.client.table("organization_members")\
+        neon_service.client.table("organization_members")\
             .delete()\
             .eq("id", str(member_id))\
             .eq("org_id", str(org_id))\
@@ -292,25 +292,25 @@ class MembershipService:
         """
         Validates an invitation code.
         """
-        result = supabase_service.client.table("organization_members")\
+        result = neon_service.client.table("organization_members")\
             .select("*, organizations(name)")\
             .eq("invitation_code", code)\
             .eq("status", MembershipStatus.PENDING)\
             .execute()
-            
+
         if not result.data:
             raise HTTPException(status_code=404, detail="Invalid or expired invitation code")
-            
+
         inv = result.data[0]
         # Check expiration (7 days)
         created_at = datetime.fromisoformat(inv["created_at"].replace("Z", "+00:00"))
         if datetime.now(created_at.tzinfo) > created_at + timedelta(days=7):
             raise HTTPException(status_code=404, detail="Invitation code expired")
-            
+
         return {
             "valid": True,
             "email": inv.get("invited_email") or (
-                supabase_service.client.table("user_profiles")
+                neon_service.client.table("user_profiles")
                 .select("email")
                 .eq("id", inv["user_id"])
                 .limit(1)
@@ -331,7 +331,7 @@ class MembershipService:
         # First validate
         _ = await self.validate_invitation(code)
 
-        invite = supabase_service.client.table("organization_members")\
+        invite = neon_service.client.table("organization_members")\
             .select("*")\
             .eq("invitation_code", code)\
             .eq("status", MembershipStatus.PENDING)\
@@ -343,7 +343,7 @@ class MembershipService:
         inv = invite.data[0]
         org_id = inv["org_id"]
 
-        existing_active = supabase_service.client.table("organization_members")\
+        existing_active = neon_service.client.table("organization_members")\
             .select("id")\
             .eq("org_id", org_id)\
             .eq("user_id", str(user_id))\
@@ -354,7 +354,7 @@ class MembershipService:
             raise HTTPException(status_code=409, detail="User is already an active member of this organization")
 
         # Update membership
-        result = supabase_service.client.table("organization_members")\
+        result = neon_service.client.table("organization_members")\
             .update({
                 "user_id": str(user_id),
                 "status": MembershipStatus.ACTIVE,
@@ -363,12 +363,12 @@ class MembershipService:
             })\
             .eq("id", str(inv["id"]))\
             .execute()
-            
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to accept invitation")
 
         accepted = result.data[0]
-        supabase_service.client.table("user_profiles")\
+        neon_service.client.table("user_profiles")\
             .update({
                 "org_id": accepted["org_id"],
                 "role": accepted["role"]

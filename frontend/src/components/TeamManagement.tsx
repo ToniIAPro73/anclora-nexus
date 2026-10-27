@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useOrgMembership } from '@/lib/hooks/useOrgMembership'
 import { useTeamManagement } from '@/lib/hooks/useTeamManagement'
 import { useI18n } from '@/lib/i18n'
-import supabase from '@/lib/supabase'
+import database from '@/lib/neon-data-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   UserPlus,
@@ -96,8 +96,8 @@ export default function TeamManagement() {
     const loadSelfProfile = async () => {
       if (!currentUserId) return
 
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: profile } = await supabase
+      const { data: { user } } = await database.auth.getUser()
+      const { data: profile } = await database
         .from('user_profiles')
         .select('full_name,email,avatar_url')
         .eq('id', currentUserId)

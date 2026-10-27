@@ -7,8 +7,6 @@ from fastapi.testclient import TestClient
 
 from route_helpers import flatten_routes
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("AI_RUNTIME_PROFILE", "groq-cloudflare")
 os.environ.setdefault("GROQ_API_KEY", "groq-test")
 os.environ.setdefault("CLOUDFLARE_ACCOUNT_ID", "cf-account-test")

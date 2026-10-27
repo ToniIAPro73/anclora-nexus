@@ -10,7 +10,7 @@ from backend.services.access_request_service import AccessRequestService
 from backend.tests.test_access_request_review_service import (
     ORG_ID,
     REVIEWER_ID,
-    MockSupabaseClient,
+    MockNeonClient,
     access_request_record,
 )
 
@@ -130,8 +130,8 @@ async def test_access_request_analytics_summary_counts_and_attention(monkeypatch
         }
     ]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows, audit_rows=audit_rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
     )
     monkeypatch.setattr(
         "backend.services.access_request_service.datetime",
@@ -173,8 +173,8 @@ async def test_access_request_analytics_summary_counts_and_attention(monkeypatch
 async def test_access_request_analytics_uses_bounded_limit(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
-        "backend.services.access_request_service.supabase_service.client",
-        MockSupabaseClient(rows),
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows),
     )
 
     summary = await service.get_analytics_summary(ORG_ID, limit=5000)

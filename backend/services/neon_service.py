@@ -1,29 +1,12 @@
 import hashlib
 import hmac
 import json
-import socket
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-import httpx
-from supabase import create_client, Client
-from supabase.client import ClientOptions
+from postgrest import SyncPostgrestClient
 from backend.config import settings
 from backend.services.neon_tokens import create_neon_jwt
 from backend.services.origin_editability_policy import sanitize_payload
-
-# DNS resilience for Supabase cloud hosts
-_orig_getaddrinfo = socket.getaddrinfo
-def _resilient_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    try:
-        return _orig_getaddrinfo(host, port, family, type, proto, flags)
-    except socket.gaierror:
-        if "supabase.co" in str(host):
-            return [
-                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("172.64.149.246", port)),
-                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.18.38.10", port)),
-            ]
-        raise
-socket.getaddrinfo = _resilient_getaddrinfo
 
 class _RefreshableQuery:
     """Proxy a PostgREST builder and refresh its bearer token before execution."""
@@ -50,90 +33,49 @@ class _RefreshableQuery:
         return call
 
 
-class _DatabaseAndSupabaseClient:
-    """Keep Supabase Auth/Storage while routing database calls through Neon."""
-
-    def __init__(self, database_client: Client, auth_storage_client: Client, refresh_token: Any = None):
-        self._database_client = database_client
-        self._auth_storage_client = auth_storage_client
+class _NeonPostgrestFacade:
+    def __init__(self, client: SyncPostgrestClient, refresh_token: Any):
+        self._client = client
         self._refresh_token = refresh_token
 
     def table(self, name: str) -> Any:
-        query = self._database_client.table(name)
-        return _RefreshableQuery(query, self._refresh_token) if self._refresh_token else query
+        return _RefreshableQuery(self._client.table(name), self._refresh_token)
 
     def from_(self, name: str) -> Any:
         return self.table(name)
 
     def rpc(self, function_name: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        query = self._database_client.rpc(function_name, params)
-        return _RefreshableQuery(query, self._refresh_token) if self._refresh_token else query
-
-    @property
-    def auth(self) -> Any:
-        return self._auth_storage_client.auth
-
-    @property
-    def storage(self) -> Any:
-        return self._auth_storage_client.storage
+        return _RefreshableQuery(self._client.rpc(function_name, params or {}), self._refresh_token)
 
 
-class SupabaseService:
+class NeonService:
+    """Neon Data API access with short-lived service-role JWTs."""
+
     def __init__(self):
-        auth_storage_client: Client = create_client(
-            settings.SUPABASE_URL, 
-            settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
-        )
-        self.client = auth_storage_client
-        self.database_provider = settings.DATABASE_PROVIDER.strip().lower()
-
-        if self.database_provider == "neon":
-            if not settings.NEON_DATA_API_URL:
-                raise RuntimeError("NEON_DATA_API_URL is required when DATABASE_PROVIDER=neon")
-            if not settings.NEON_JWT_PRIVATE_KEY or not settings.NEON_JWT_KEY_ID:
-                raise RuntimeError("NEON_JWT_PRIVATE_KEY and NEON_JWT_KEY_ID are required when DATABASE_PROVIDER=neon")
-
-            data_api_url = settings.NEON_DATA_API_URL.rstrip("/")
-            if data_api_url.endswith("/rest/v1"):
-                data_api_url = data_api_url[:-len("/rest/v1")]
-
-            # Neon Data API uses PostgREST; the Supabase client appends /rest/v1.
-            def remove_legacy_api_key(request: httpx.Request) -> None:
-                # Neon Data API authenticates with the request JWT, not Supabase's legacy anon key.
-                request.headers.pop("apikey", None)
-
-            database_client = create_client(
-                data_api_url,
-                "neon-data-api",
-                options=ClientOptions(httpx_client=httpx.Client(event_hooks={"request": [remove_legacy_api_key]})),
-            )
-
-            def refresh_service_token() -> None:
-                database_client.postgrest.auth(create_neon_jwt(
-                    role="service_role",
-                    subject="nexus-backend-service",
-                    private_key=settings.NEON_JWT_PRIVATE_KEY or "",
-                    key_id=settings.NEON_JWT_KEY_ID or "",
-                    issuer=settings.NEON_JWT_ISSUER,
-                    audience=settings.NEON_JWT_AUDIENCE,
-                    ttl_seconds=settings.NEON_SERVICE_JWT_TTL_SECONDS,
-                ))
-
-            refresh_service_token()
-            self.client = _DatabaseAndSupabaseClient(
-                database_client,
-                auth_storage_client,
-                refresh_service_token,
-            )
-        self.audit_secret = (
-            settings.INTERNAL_AUDIT_SECRET
-            or settings.SUPABASE_SERVICE_ROLE_KEY
-            or settings.SUPABASE_ANON_KEY
-        )
+        if not settings.NEON_DATA_API_URL:
+            raise RuntimeError("NEON_DATA_API_URL is required")
+        if not settings.NEON_JWT_PRIVATE_KEY or not settings.NEON_JWT_KEY_ID:
+            raise RuntimeError("NEON_JWT_PRIVATE_KEY and NEON_JWT_KEY_ID are required")
+        database_client = SyncPostgrestClient(settings.NEON_DATA_API_URL.rstrip("/"))
+        self._refresh_token = lambda: database_client.auth(self._service_token())
+        self._refresh_token()
+        self.client = _NeonPostgrestFacade(database_client, self._refresh_token)
+        self.audit_secret = settings.INTERNAL_AUDIT_SECRET or ""
         self.fixed_org_id = (
             settings.LEGACY_SINGLE_TENANT_ORG_ID
             or settings.PUBLIC_CTA_ORG_ID
             or "00000000-0000-0000-0000-000000000000"
+        )
+
+    def _service_token(self) -> str:
+        return create_neon_jwt(
+            role="service_role",
+            subject="nexus-backend-service",
+            private_key=settings.NEON_JWT_PRIVATE_KEY or "",
+            key_id=settings.NEON_JWT_KEY_ID or "",
+            issuer=settings.NEON_JWT_ISSUER,
+            audience=settings.NEON_JWT_AUDIENCE,
+            ttl_seconds=settings.NEON_SERVICE_JWT_TTL_SECONDS,
         )
 
     def _generate_signature(self, data: Dict[str, Any]) -> str:
@@ -219,7 +161,7 @@ class SupabaseService:
         # Ensure org_id is present
         if "org_id" not in data:
             data["org_id"] = self.fixed_org_id
-            
+
         # Generate signature before insert
         signature = self._generate_signature(data)
         audit_data = {**data, "signature": signature, "timestamp": datetime.utcnow().isoformat()}
@@ -401,4 +343,4 @@ class SupabaseService:
 
         return {"user_id": None, "role": None, "reason": "no_active_members"}
 
-supabase_service = SupabaseService()
+neon_service = NeonService()

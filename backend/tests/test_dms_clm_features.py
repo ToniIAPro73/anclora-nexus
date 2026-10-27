@@ -11,8 +11,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 os.environ.setdefault("DOCUSEAL_API_KEY", "docuseal-api-key")
 os.environ.setdefault("DOCUSEAL_WEBHOOK_SECRET", "webhook-secret")
 os.environ.setdefault("NEXUS_DOCUMENT_ENCRYPTION_KEY", "00" * 32)
@@ -447,9 +445,9 @@ def test_retention_sweep_with_valid_key(monkeypatch):
         "backend.services.document_retention_service.enforce_retention_for_org",
         mock_enforce,
     )
-    # Patch supabase query to return two orgs
+    # Patch neon query to return two orgs
     monkeypatch.setattr(
-        wh_mod.supabase_service.client,
+        wh_mod.neon_service.client,
         "table",
         lambda _: QB([{"org_id": ORG_ID}, {"org_id": str(uuid4())}]),
     )

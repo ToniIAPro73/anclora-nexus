@@ -7,8 +7,6 @@ from fastapi.testclient import TestClient
 
 from route_helpers import flatten_routes
 
-os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
-os.environ.setdefault("SUPABASE_ANON_KEY", "test-key")
 
 from backend.api.routes.prospection import router
 from backend.api.deps import check_budget_hard_stop, get_org_id, get_current_user

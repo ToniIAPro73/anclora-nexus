@@ -19,7 +19,7 @@ from typing import Any, Dict
 from backend.services.llm_service import LLMService
 from backend.services.org_context_service import resolve_legacy_org_id
 from backend.services.seller_memory_service import seller_memory_service
-from backend.services.supabase_service import SupabaseService
+from backend.services.neon_service import NeonService
 from backend.services.notebooklm_service import get_latest_insights
 
 ZONA_LABELS = {
@@ -41,7 +41,7 @@ ZONA_LABELS = {
 async def run_whale_dossier(
     data: Dict[str, Any],
     llm: LLMService,
-    db: SupabaseService,
+    db: NeonService,
 ) -> Dict[str, Any]:
     """
     Generate a captation dossier + multichannel outreach drafts for a Whale seller.
@@ -49,7 +49,7 @@ async def run_whale_dossier(
     Args:
         data: {"seller_id": "uuid", "org_id": "uuid" (optional)}
         llm: LLMService instance
-        db: SupabaseService instance
+        db: NeonService instance
 
     Returns:
         {

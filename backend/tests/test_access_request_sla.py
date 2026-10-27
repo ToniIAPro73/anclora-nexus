@@ -5,8 +5,8 @@ from backend.services.access_request_service import AccessRequestService
 from backend.models.access_requests import AccessRequestSlaSeverity, AccessRequestSlaReason
 
 @pytest.fixture
-def mock_supabase_service():
-    with patch("backend.services.access_request_service.supabase_service") as mock:
+def mock_neon_service():
+    with patch("backend.services.access_request_service.neon_service") as mock:
         # Configure table() to return different mocks
         tables = {}
         def get_table(name):
@@ -24,7 +24,7 @@ def mock_audit_service():
         yield mock
 
 @pytest.mark.anyio
-async def test_run_sla_scan_deduplication(mock_supabase_service, mock_audit_service):
+async def test_run_sla_scan_deduplication(mock_neon_service, mock_audit_service):
     # Setup
     service = AccessRequestService()
     now = datetime.now(timezone.utc)
@@ -42,10 +42,10 @@ async def test_run_sla_scan_deduplication(mock_supabase_service, mock_audit_serv
     }
     
     # Table "access_requests" fetch
-    mock_supabase_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
+    mock_neon_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
     
     # Table "audit_log" fetch (dedupe)
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
     
     result = await service.run_sla_scan(org_id="test-org", reviewer_id="test-reviewer", limit=10)
     
@@ -57,7 +57,7 @@ async def test_run_sla_scan_deduplication(mock_supabase_service, mock_audit_serv
     
     # 2. Mock second scan: audit log exists (dedupe)
     mock_audit_service.create_audit_log_entry.reset_mock()
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = [
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = [
         {
             "timestamp": now.isoformat(),
             "action": "access_request.sla_warning",
@@ -72,7 +72,7 @@ async def test_run_sla_scan_deduplication(mock_supabase_service, mock_audit_serv
     assert result.alerts_suppressed == 1
 
 @pytest.mark.anyio
-async def test_run_sla_scan_critical_pending(mock_supabase_service, mock_audit_service):
+async def test_run_sla_scan_critical_pending(mock_neon_service, mock_audit_service):
     # Setup
     service = AccessRequestService()
     now = datetime.now(timezone.utc)
@@ -87,8 +87,8 @@ async def test_run_sla_scan_critical_pending(mock_supabase_service, mock_audit_s
         "product": "synergi"
     }
     
-    mock_supabase_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
+    mock_neon_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
     
     result = await service.run_sla_scan(org_id="test-org", reviewer_id="test-reviewer")
     
@@ -97,7 +97,7 @@ async def test_run_sla_scan_critical_pending(mock_supabase_service, mock_audit_s
     assert result.items[0].reason == AccessRequestSlaReason.PENDING_OLDER_THAN_72H
 
 @pytest.mark.anyio
-async def test_run_sla_scan_failed_email(mock_supabase_service, mock_audit_service):
+async def test_run_sla_scan_failed_email(mock_neon_service, mock_audit_service):
     # Setup
     service = AccessRequestService()
     now = datetime.now(timezone.utc)
@@ -109,13 +109,13 @@ async def test_run_sla_scan_failed_email(mock_supabase_service, mock_audit_servi
         "created_at": now.isoformat()
     }
     
-    mock_supabase_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
+    mock_neon_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
     
     # Mock individual request audit for lifecycle
     # email_send_failed -> DECISION_EMAIL_FAILED
     # retry_available = True -> RETRY_AVAILABLE alert
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value.data = [
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value.data = [
         {"action": "access_request.email_send_failed", "details": {"status": "failed"}},
         {"action": "access_request.provisioning_invite_sent", "details": {}}
     ]
@@ -126,7 +126,7 @@ async def test_run_sla_scan_failed_email(mock_supabase_service, mock_audit_servi
     assert AccessRequestSlaReason.DECISION_EMAIL_FAILED in found_reasons
 
 @pytest.mark.anyio
-async def test_run_sla_scan_provisioning_attention(mock_supabase_service, mock_audit_service):
+async def test_run_sla_scan_provisioning_attention(mock_neon_service, mock_audit_service):
     # Setup
     service = AccessRequestService()
     now = datetime.now(timezone.utc)
@@ -140,11 +140,11 @@ async def test_run_sla_scan_provisioning_attention(mock_supabase_service, mock_a
         "created_at": now.isoformat()
     }
     
-    mock_supabase_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
+    mock_neon_service.client.table("access_requests").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [mock_request]
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.in_.return_value.gte.return_value.execute.return_value.data = []
     
     # Lifecycle: approved, email sent successfully, but NO provisioning
-    mock_supabase_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value.data = [
+    mock_neon_service.client.table("audit_log").select.return_value.eq.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value.data = [
         {"action": "access_request.approved", "details": {}},
         {"action": "access_request.email_sent", "details": {"status": "sent"}}
     ]

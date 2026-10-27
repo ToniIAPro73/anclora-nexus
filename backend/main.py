@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-from backend.services.supabase_service import supabase_service
+from backend.services.neon_service import neon_service
 from backend.api.routes import router as api_router
 from backend.api.routes.memberships import router as memberships_router
 from backend.api.routes.prospection import router as prospection_router
