@@ -51,7 +51,7 @@ WORKING_BRANCH=development
 ANCLORA_FLOW_CONTRACT_VERSION=2.0
 ANCLORA_FLOW_VERSION=1
 RUNTIME_CONTRACT_AUTHORITY=CANONICAL
-STATUS=PRODUCTION_RUNTIME_CONFIRMED
+STATUS=PRODUCTION_RUNTIME_RECONCILIATION_REQUIRED
 LOCAL_RUNTIME_MODEL=PRODUCTION_BACKED
 DO_NOT_CREATE_DEVELOPMENT_DATABASE=true
 
@@ -78,13 +78,19 @@ Browser / Client
 Vercel Frontend (Node.js)
    ↓
 Backend Services
-   ├── Database: Supabase
-   └── External Integrations
+   ├── Application database: Supabase by default until Neon provider selectors are enabled
+   ├── Authentication: Anclora Identity
+   ├── Object storage: Vercel Blob target; active Render selection unverified
+   └── External integrations
 ```
 
 ## 3. Production Database Contract
 
 DATABASE_PROVIDER=Supabase
+DATABASE_PROVIDER_EFFECTIVE_SCOPE=Vercel application routes default to Supabase because provider selectors are absent; Render backend selection unverified
+DATABASE_TARGET_PROVIDER=Neon
+DATABASE_CUTOVER_STATUS=Neon schema/data and production Data API credentials exist; production provider selection and runtime traffic are not verified
+DATABASE_PROVIDER_SELECTORS_VERIFIED=false
 DATABASE_SCOPE=production
 LOCAL_DATABASE_SCOPE=production
 
@@ -95,24 +101,27 @@ local or alternate database unless Toni explicitly requests it.
 
 ## 4. Database Migration Contract
 
-MIGRATION_SYSTEM=None
-MIGRATION_STRATEGY=NONE
-MIGRATION_DIRECTORY=NONE
-MIGRATION_RUNNER=NONE
+MIGRATION_SYSTEM=Neon PostgreSQL for target schema; Supabase migrations retained as historical/legacy source
+MIGRATION_STRATEGY=Reviewed SQL applied to the explicitly selected provider; never infer target from local defaults
+MIGRATION_DIRECTORY=./neon/migrations and ./supabase/migrations (legacy history)
+MIGRATION_RUNNER=Manual reviewed SQL from neon/migrations/README.md; no automatic production runner
 
-All schema migrations apply strictly against the designated production database.
+Apply migrations only to the explicitly selected database/branch. Production migrations require the governed production change process; isolated Neon security-review work must stay on its designated temporary branch.
 Destructive drops or resets are strictly prohibited without authorization.
 
 ## 5. Storage Contract
 
-STORAGE_PROVIDER=None
+STORAGE_PROVIDER=Vercel Blob (target for DMS and avatars; effective Render selector not verified)
+STORAGE_LEGACY_PROVIDER=Supabase Storage
+STORAGE_CUTOVER_STATUS=Implementation and Vercel token exist; production Render provider/token and runtime smoke unverified
 STORAGE_SCOPE=production
 
 Local development utilizes production storage buckets/services according to the production-backed model.
 
 ## 6. Authentication Contract
 
-AUTH_PROVIDER=Supabase Auth
+AUTH_PROVIDER=Anclora Identity
+AUTH_LEGACY_PROVIDER=Supabase Auth (legacy code/configuration may remain)
 AUTH_SCOPE=production
 
 ## 7. External Services & Integrations

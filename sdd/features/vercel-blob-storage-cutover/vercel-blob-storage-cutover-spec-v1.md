@@ -1,14 +1,14 @@
 # Vercel Blob Storage Cutover — Specification v1
 
-Status: Draft for implementation and Preview validation.
+Status: **Code and Vercel token present; effective production selection unverified (2026-10-27).** The Render service metadata available during this audit did not expose `NEXUS_STORAGE_PROVIDER` or the Blob token. Do not claim the production storage cutover complete until those runtime settings and an authenticated DMS/avatar smoke are confirmed.
 
 ## Problem
 
-Nexus continues to use Supabase Storage for DMS documents and profile avatars even though application data has moved to Neon. The FastAPI backend runs on Render and currently uses the Supabase Python client for DMS object operations.
+Nexus still has Supabase Storage paths for DMS documents and profile avatars. Neon is the target for application data, but production database-provider selection is not verified; see the Neon runtime cutover specification. The FastAPI backend runs on Render and has a provider switch for DMS object operations whose active production value has not been verified.
 
 ## Goal
 
-Move Nexus DMS files and profile avatar bytes to a private Vercel Blob store, while keeping Supabase Auth unchanged. Avatars remain publicly viewable through a narrow API proxy, matching their existing public behavior without exposing the Blob token. Use Vercel's Python Blob SDK directly from the existing FastAPI service; do not add a Node storage bridge.
+Move Nexus DMS files and profile avatar bytes to a private Vercel Blob store, independently of the application database and Anclora Identity. Avatars remain publicly viewable through a narrow API proxy, matching their existing public behavior without exposing the Blob token. Use Vercel's Python Blob SDK directly from the existing FastAPI service; do not add a Node storage bridge.
 
 ## Observed baseline (2026-10-26)
 
@@ -22,14 +22,14 @@ Move Nexus DMS files and profile avatar bytes to a private Vercel Blob store, wh
 
 - Add the official Vercel Blob Python SDK to the Render backend and introduce a storage service abstraction for private upload, read, delete, and public avatar proxying.
 - Replace direct Supabase Storage calls in DMS routes with the storage service.
-- Replace browser-direct Supabase avatar uploads with an authenticated server-side upload flow; update the Neon profile URL and Supabase Auth user metadata after upload succeeds.
+- Replace browser-direct Supabase avatar uploads with an authenticated server-side upload flow; update the profile URL and identity-provider user metadata after upload succeeds where supported.
 - Preserve current DMS pathnames at the application layer; namespace Blob objects as `bucket/path` to prevent collisions between Supabase buckets, without changing Neon references.
 - Copy existing DMS objects and public avatar objects with byte/hash verification before changing application reads/writes.
-- Keep all Supabase Auth flows on Supabase and retain the Supabase buckets as rollback sources until Preview validation and an explicit production cutover.
+- Keep authentication independent from storage and retain the Supabase buckets as rollback sources until the active Render storage provider is verified and an explicit production cutover is validated.
 
 ## Out of scope
 
-- Migrating Supabase Auth to Neon Auth or Anclora Identity.
+- Changing authentication or migrating identity-provider accounts.
 - Deleting Supabase buckets, users, or source objects.
 - Changing the Neon schema or application database provider.
 - Changing the Vercel frontend or Render backend hosting providers.
@@ -40,6 +40,6 @@ Move Nexus DMS files and profile avatar bytes to a private Vercel Blob store, wh
 - AC2: DMS membership and `org_id` checks run before every file read, write, and delete.
 - AC3: Existing 15 DMS objects are copied byte-for-byte and every source path has exactly one verified destination path.
 - AC4: Existing Neon DMS path references continue to resolve after cutover.
-- AC5: Avatar upload requires an authenticated user, writes only under that user's stable prefix, and updates the Neon profile and Supabase Auth metadata only after upload success. Avatar bytes stay in private Blob and are served through a constrained image-only proxy.
+- AC5: Avatar upload requires an authenticated user, writes only under that user's stable prefix, and updates the profile and identity-provider metadata only after upload succeeds where supported. Avatar bytes stay in private Blob and are served through a constrained image-only proxy.
 - AC6: Empty buckets remain empty; no Supabase data is deleted during migration.
-- AC7: Render Preview validates DMS upload/download/version/signature flows and avatar upload before production cutover.
+- AC7: The intended Render environment has `NEXUS_STORAGE_PROVIDER=vercel_blob` and the Blob token; authenticated DMS upload/download/version/signature flows and avatar upload pass before declaring production cutover.

@@ -87,7 +87,7 @@ report `ANCLORA_AUTHORITY_CONFLICT` with details and stop the affected action.
 ## 4. Core Project Contracts
 
 - **PRODUCTION_RUNTIME**: [`.anclora/PRODUCTION_RUNTIME.md`](PRODUCTION_RUNTIME.md)
-  - Governs real runtime architecture, hosting, Supabase database connection, NONE migration strategy, auth, and production-backed local model.
+  - Governs observed runtime architecture, hosting, effective database/storage/auth providers, migration procedures, QA, and production-backed local model. Provider targets and incomplete cutovers are recorded separately from effective production state.
 - **AOS_ADOPTION**: [`.anclora/AOS_ADOPTION.md`](AOS_ADOPTION.md)
   - Governs AOS alignment, governance level, standards, and referenced authoritative knowledge.
 
@@ -126,7 +126,7 @@ Repository-specific runtime minima are defined in [`PRODUCTION_RUNTIME.md`](PROD
 | Task Domain | Primary Authority to Read First | Secondary / Operational Sources |
 | :--- | :--- | :--- |
 | **Runtime / Hosting / Env** | [`.anclora/PRODUCTION_RUNTIME.md`](PRODUCTION_RUNTIME.md) | `.env.local` (mode 0600) |
-| **Database / Migrations** | [`.anclora/PRODUCTION_RUNTIME.md`](PRODUCTION_RUNTIME.md) | `NONE` |
+| **Database / Migrations** | [`.anclora/PRODUCTION_RUNTIME.md`](PRODUCTION_RUNTIME.md) | [`sdd/features/neon-runtime-cutover/`](../sdd/features/neon-runtime-cutover/) |
 | **AOS Governance** | [`.anclora/AOS_ADOPTION.md`](AOS_ADOPTION.md) | [`../../anclora-governance/`](../../anclora-governance/) |
 | **Design / UI Tokens** | [`../../anclora-design-system/`](../../anclora-design-system/) | [`../../anclora-vault/00-governance/contracts/`](../../anclora-vault/00-governance/contracts/) |
 | **Git Workflow** | [`.anclora/PRODUCTION_RUNTIME.md`](PRODUCTION_RUNTIME.md) | `../AGENTS.md` |

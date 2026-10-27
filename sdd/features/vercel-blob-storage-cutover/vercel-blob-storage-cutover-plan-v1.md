@@ -1,7 +1,7 @@
 # Vercel Blob Storage Cutover — Plan v1
 
 1. Confirm the Vercel Python Blob SDK API and pin a compatible package version for the Render FastAPI runtime.
-2. Add a provider-neutral storage facade and migrate backend DMS calls while retaining Supabase Auth and Neon data access.
+2. Add a provider-neutral storage facade and migrate backend DMS calls independently from the effective database provider and Anclora Identity authentication.
 3. Replace direct browser Supabase avatar uploads with an authenticated backend upload endpoint.
 4. Create private and public Blob stores scoped to the Nexus project; provide the private token to Render and the public/private tokens only to server runtimes that need them.
 5. Copy existing DMS objects to identical private pathnames and avatars to stable public paths; verify object count, byte size, and SHA-256 before cutover.
