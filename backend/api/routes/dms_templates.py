@@ -16,6 +16,7 @@ from backend.models.dms import (
 )
 from backend.services.document_encryption_service import DocumentEncryptionService
 from backend.services.supabase_service import supabase_service
+from backend.services.blob_storage import put_private_blob
 
 router = APIRouter()
 
@@ -246,7 +247,7 @@ async def upload_template_version(
 
     bucket = "dms-templates"
     storage_path = f"templates/{org_id}/{template_id}/v{next_version}-{uuid4()}.enc"
-    supabase_service.client.storage.from_(bucket).upload(storage_path, encrypted_payload)
+    put_private_blob(storage_path, encrypted_payload, bucket=bucket)
 
     sha256_hash = enc_svc.sha256(content)
 

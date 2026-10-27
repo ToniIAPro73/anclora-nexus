@@ -10,6 +10,7 @@ from backend.api.deps import get_current_user, get_org_id
 from backend.api.middleware import verify_org_membership
 from backend.services.document_encryption_service import DocumentEncryptionService
 from backend.services.supabase_service import supabase_service
+from backend.services.blob_storage import get_private_blob, put_private_blob
 
 router = APIRouter()
 
@@ -106,7 +107,7 @@ async def upload_document_version(
 
     bucket = "dms-generated"
     storage_path = f"generated/{org_id}/{generated_id}/v{next_version}-{uuid4()}.enc"
-    supabase_service.client.storage.from_(bucket).upload(storage_path, encrypted_payload)
+    put_private_blob(storage_path, encrypted_payload, bucket=bucket)
 
     insert_payload = {
         "generated_document_id": str(generated_id),
@@ -156,7 +157,7 @@ async def diff_document_versions(
     bucket = "dms-generated"
 
     def _decrypt_version(version: dict[str, Any]) -> str:
-        raw = supabase_service.client.storage.from_(bucket).download(version["storage_path"])
+        raw = get_private_blob(version["storage_path"], bucket=bucket)
         text = enc_svc.decrypt_file(raw, version["encryption_iv"], version["encryption_auth_tag"])
         return text.decode("utf-8", errors="replace")
 

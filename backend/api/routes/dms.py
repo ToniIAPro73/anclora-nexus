@@ -37,6 +37,7 @@ from backend.services.document_export_service import export_docx, export_pdf
 from backend.services.document_generation_service import fetch_template_required_fields
 from backend.services.document_template_rendering_service import build_template_context, resolve_and_render_template
 from backend.services.supabase_service import supabase_service
+from backend.services.blob_storage import get_private_blob, put_private_blob
 
 
 router = APIRouter()
@@ -190,7 +191,7 @@ def _extract_plain_text(document: dict[str, Any], content: bytes, override_text:
 
 
 def _download_and_decrypt(document: dict[str, Any]) -> bytes:
-    encrypted_payload = supabase_service.client.storage.from_(_storage_bucket()).download(document["storage_path"])
+    encrypted_payload = get_private_blob(document["storage_path"], bucket=_storage_bucket())
     return DocumentEncryptionService.decrypt_file(
         encrypted_payload,
         bytes.fromhex(document["encryption_iv"]),
@@ -303,11 +304,7 @@ def _unset_existing_primary_party(folder_id: UUID | str, org_id: str) -> None:
 
 def _plain_storage_upload(path: str, content: bytes, content_type: str) -> None:
     try:
-        supabase_service.client.storage.from_(_storage_bucket()).upload(
-            path,
-            content,
-            file_options={"content-type": content_type, "upsert": "true"},
-        )
+        put_private_blob(path, content, content_type=content_type, overwrite=True, bucket=_storage_bucket())
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -467,11 +464,7 @@ async def upload_document(
     filename = _safe_filename(file.filename)
     storage_path = f"dms/{org_id}/{folder_id}/{uuid4()}-{filename}.enc"
 
-    supabase_service.client.storage.from_(_storage_bucket()).upload(
-        storage_path,
-        encrypted_payload,
-        file_options={"content-type": "application/octet-stream", "upsert": "false"},
-    )
+    put_private_blob(storage_path, encrypted_payload, bucket=_storage_bucket())
 
     payload = {
         "folder_id": str(folder_id),
@@ -711,9 +704,7 @@ async def docuseal_webhook(
             if flow:
                 bucket = os.environ.get("NEXUS_SIGNED_DOCUMENT_BUCKET", "dms-signed")
                 signed_path = f"{flow.get('org_id', 'org')}/{flow.get('generated_document_id', 'doc')}/signed_{uuid4()}.pdf"
-                supabase_service.client.storage.from_(bucket).upload(
-                    signed_path, pdf_bytes, {"content-type": "application/pdf", "upsert": "true"}
-                )
+                put_private_blob(signed_path, pdf_bytes, content_type="application/pdf", overwrite=True, bucket=bucket)
         except Exception:
             pass  # Non-fatal — we still update the flow status
 
@@ -1651,7 +1642,7 @@ async def download_generated_document(
     path = version.get(path_key) or document.get(path_key)
     if not path:
         raise HTTPException(status_code=404, detail="Generated file not found")
-    content = supabase_service.client.storage.from_(_storage_bucket()).download(path)
+    content = get_private_blob(path, bucket=_storage_bucket())
     media_type = "application/pdf" if format == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     _audit_access(org_id, str(current_user.id), "dms_generated_document_downloaded", str(document_id), {"format": format})
     return StreamingResponse(BytesIO(content), media_type=media_type)
@@ -1842,7 +1833,7 @@ async def download_dossier_export(
         raise HTTPException(status_code=404, detail="Export file not found")
     try:
         bucket = os.environ.get("NEXUS_DOSSIER_EXPORT_BUCKET", "dms-exports-temp")
-        content = supabase_service.client.storage.from_(bucket).download(storage_path)
+        content = get_private_blob(storage_path, bucket=bucket)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Download failed: {exc}") from exc
     _audit_access(org_id, str(current_user.id), "dms_dossier_export_downloaded", str(export_id), {

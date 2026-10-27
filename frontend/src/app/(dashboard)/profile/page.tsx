@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import supabase from '@/lib/supabase'
+import { buildBackendUrl } from '@/lib/backend-url'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -142,39 +143,25 @@ export default function ProfilePage() {
     setErrorStatus(null)
 
     try {
-      // 1. Upload under "<uid>/..." so Storage RLS can scope ownership.
-      const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg'
-      const fileName = `${user.id}/avatar-${Date.now()}.${extension}`
-      const bucket = 'avatars'
-
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file.type || 'image/jpeg'
-        })
-
-      if (uploadError) {
-        if (uploadError.message.includes('not found')) {
-          setErrorStatus(`Bucket "${bucket}" is not ready. Please check Supabase Storage settings.`)
-          throw uploadError
-        }
-        if (uploadError.message.toLowerCase().includes('row-level security')) {
-          setErrorStatus('No hay permisos para subir avatar en Storage (RLS). Aplica la migración 012 y reinicia Supabase.')
-          throw uploadError
-        }
-        throw uploadError
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('No authenticated session')
+      const body = new FormData()
+      body.set('file', file)
+      const uploadResponse = await fetch(buildBackendUrl('/api/profile/avatar'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body,
+      })
+      const uploadResult = await uploadResponse.json()
+      if (!uploadResponse.ok || typeof uploadResult.avatar_url !== 'string') {
+        throw new Error(uploadResult.detail || 'Avatar upload failed')
       }
+      const publicUrl = uploadResult.avatar_url
 
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(fileName)
-
-      // 3. Update Database
-      await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
+      const { error: profileError } = await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+      if (profileError) throw profileError
+      const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
+      if (authError) throw authError
 
       await fetchProfile()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

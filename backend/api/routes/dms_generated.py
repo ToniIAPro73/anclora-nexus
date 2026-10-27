@@ -14,6 +14,7 @@ from backend.services.document_generation_service import (
     generate_from_template,
 )
 from backend.services.supabase_service import supabase_service
+from backend.services.blob_storage import put_private_blob
 
 router = APIRouter()
 
@@ -117,7 +118,7 @@ async def generate_document(
 
     bucket = "dms-generated"
     storage_path = f"generated/{org_id}/{folder_id}/{uuid4()}.enc"
-    supabase_service.client.storage.from_(bucket).upload(storage_path, encrypted_payload)
+    put_private_blob(storage_path, encrypted_payload, bucket=bucket)
 
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()

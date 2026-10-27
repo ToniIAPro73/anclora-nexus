@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     NEXUS_DOCUMENT_ENCRYPTION_KEY: Optional[str] = None
     NEXUS_DMS_BUCKET: str = "dms"
     NEXUS_DMS_MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
+    NEXUS_STORAGE_PROVIDER: str = "supabase"
+    BLOB_READ_WRITE_TOKEN: Optional[str] = None
+    NEXUS_AVATAR_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
     DOCUSEAL_WEBHOOK_SECRET: Optional[str] = None
     DOCUSEAL_API_KEY: Optional[str] = None
     DOCUSEAL_API_URL: str = "https://api.docuseal.com"

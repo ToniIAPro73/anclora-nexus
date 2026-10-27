@@ -4,6 +4,7 @@ pydantic
 pydantic-settings
 email-validator
 supabase
+vercel-blob==0.5.0
 python-dotenv
 python-multipart
 sqlalchemy
