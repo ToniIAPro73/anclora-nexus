@@ -1,23 +1,25 @@
-# Checklist de validación — rotación de firma Neon Data API (2026-10-29)
+# Checklist de validación — separación de claves Nexus/Neon (2026-10-29)
 
 > Este fichero se sobrescribe en cada entrega. El historial queda en Git.
 
 **Repositorio:** anclora-nexus
 **Rama:** development
 **Validación en development:** Toni validó el cambio.
-**Datos/servicios:** no se generaron claves ni se modificó configuración de Render, Vercel o Neon.
+**Servicios:** no se modificó configuración de Render, Vercel o Neon.
 
 ## 1. Qué cambia
 
-- El endpoint `/api/neon-jwks` mantiene la clave pública derivada del firmante actual y permite publicar claves públicas P-256 adicionales durante una rotación.
-- La configuración adicional solo admite claves públicas con `kid` único; se rechazan campos privados y material/curvas no admitidos.
-- `.env.example` documenta `NEON_JWT_ADDITIONAL_PUBLIC_KEYS` como configuración pública opcional.
+- Render puede firmar JWT de servicio para Neon con `NEON_JWT_PRIVATE_KEY` y `NEON_JWT_KEY_ID` propios.
+- El backend verifica los JWT de usuario del frontend con `NEXUS_ACCESS_JWT_PUBLIC_KEY` y `NEXUS_ACCESS_JWT_KEY_ID`, sin necesitar la clave privada de Vercel.
+- Se conserva el comportamiento anterior como fallback cuando no se configura la clave pública del frontend.
+- El contrato y el plan mantienen las variables portables para la futura migración de Vercel a Cloudflare.
 
 ## 2. Ya comprobado por el agente
 
 | Comprobación | Comando o método | Resultado |
 | --- | --- | --- |
-| Pruebas focalizadas | `npm test -- tests/neon-jwks.test.ts tests/anclora-identity.test.ts` | PASS; 7 pruebas |
+| Pruebas de JWT y autenticación | `.venv/bin/pytest backend/tests/test_neon_tokens.py backend/tests/test_identity_provisioning.py -q` | PASS; 15 pruebas |
+| Pruebas JWKS del frontend | `npm test -- tests/neon-jwks.test.ts tests/anclora-identity.test.ts` | PASS; 7 pruebas |
 | Tipos del frontend | `npm run typecheck` | PASS |
 | Integridad del diff | `git diff --check` | PASS |
 
@@ -25,24 +27,25 @@
 
 | Prueba | Motivo concreto |
 | --- | --- |
-| Verificación del endpoint publicado y validación real de tokens firmados por Render | La nueva clave y la configuración de proveedores quedan para una fase posterior a esta revisión. |
-| Prueba visual de interfaz | El cambio afecta al endpoint JWKS y no modifica interfaz. |
+| Flujo de producción con claves distintas en Render y Vercel | Las variables y el par de claves de producción no se han configurado; la validación de código no incluye la rotación real. |
+| Prueba visual de interfaz | El cambio afecta a autenticación backend/JWKS y no modifica interfaz. |
 
-## 4. Checklist para validar en la aplicación
+## 4. Checklist de plataforma
 
-| # | Dónde | Pasos | Resultado esperado | Cuenta o configuración | Bloqueante |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Desarrollo | Con clave adicional de prueba, consultar `/api/neon-jwks` y comprobar ambos `kid` y ausencia de campos privados | Devuelve las claves públicas configuradas; la clave actual sigue publicada | Claves de prueba no productivas | Sí, antes de configurar la rotación |
-| 2 | Configuración de plataforma | Tras aprobar la publicación, configurar el firmante separado de Render y comprobar el flujo de autorización | Neon acepta tokens válidos de ambos firmantes durante la transición | Clave privada solo en Render; JWK público en Nexus | Sí, antes de depender del firmante de Render |
+| # | Dónde | Pasos | Resultado esperado | Bloqueante |
+| --- | --- | --- | --- | --- |
+| 1 | Vercel actual / Cloudflare futuro | Añadir el JWK público de Render a `NEON_JWT_ADDITIONAL_PUBLIC_KEYS` | El JWKS publica la clave actual del frontend y la clave pública de Render | Sí |
+| 2 | Render | Configurar la URL Data API, el firmante privado de servicio y la clave pública/kid del frontend; guardar sin desplegar | Variables presentes sin reiniciar el backend antiguo | Sí |
+| 3 | Release Nexus | Promover el SHA validado; dejar que Render despliegue el código compatible | El backend arranca y acepta tokens del frontend mientras firma sus llamadas de Neon con su clave propia | Sí |
 
 ## 5. Riesgos y limitaciones
 
-- La publicación de claves adicionales depende de la configuración `NEON_JWT_ADDITIONAL_PUBLIC_KEYS` en el entorno que sirve `/api/neon-jwks`.
-- Este cambio no genera ni distribuye claves privadas, no modifica la clave de Vercel y no cambia Neon/Render/Vercel.
-- El JWKS conserva la política actual de caché de cinco minutos; los consumidores pueden retener claves durante la transición.
+- El servicio Render está enlazado a la rama `production`; actualizar sus variables con el flujo que dispara deploy antes de desplegar el verificador separado haría que la revisión antigua rechazara los tokens de usuario.
+- No se generaron claves ni se cambiaron variables de proveedores en esta entrega.
+- Mantener el dominio JWKS estable al migrar el frontend a Cloudflare.
 
 ## 6. Decisión de Toni
 
 - [x] Cambios revisados y validados en development.
-- [ ] Validación de la rotación real con ambos firmantes completada.
+- [ ] La rotación real con ambos firmantes está verificada.
 - [ ] Se promociona: escribir `PROMOTE=FULL`.

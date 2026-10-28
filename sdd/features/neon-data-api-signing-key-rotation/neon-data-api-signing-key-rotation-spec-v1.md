@@ -6,11 +6,11 @@ Draft for development validation. Production key configuration and promotion are
 
 ## Problem
 
-The Nexus Render backend needs its own P-256 ES256 signing key for Neon Data API requests. The existing Vercel private key is stored as a production secret and cannot be recovered. Replacing it would interrupt Vercel signers unless Neon continues to trust the existing public key.
+The Nexus Render backend needs a P-256 ES256 signing key for Neon Data API requests. The existing Vercel private key is a production secret and cannot be recovered. The backend also verifies user access tokens minted by the frontend, so using a different Neon signer as the user-token verifier would reject valid Vercel-issued sessions.
 
 ## Goal
 
-Let Nexus publish the current Vercel public key and additional public signing keys in one JWKS document. Render can then use a distinct private key while Vercel keeps its current key.
+Keep the two cryptographic roles separate: the frontend publishes its signer and additional public Neon signers through one JWKS document; Render uses its own private key for Neon service tokens and the frontend's public key plus `kid` to verify user access tokens. This configuration remains portable when the frontend moves from Vercel to Cloudflare.
 
 ## Requirements
 
@@ -19,12 +19,14 @@ Let Nexus publish the current Vercel public key and additional public signing ke
 3. Reject malformed keys, non-P-256 keys, duplicate key IDs, and JWKs containing private key material. Do not return partial JWKS data on invalid configuration.
 4. Normalize published keys to public JWK fields with `use=sig` and `alg=ES256`; never publish private fields.
 5. Keep the JWKS cache policy bounded and return sanitized configuration errors.
-6. Production key generation, Render secret writes, Neon mutations, and deployment are separate gated operations after development validation.
+6. Render user-token verification can use `NEXUS_ACCESS_JWT_PUBLIC_KEY` and `NEXUS_ACCESS_JWT_KEY_ID`, independently of the private key and `kid` used to sign Neon service tokens. If the public verifier is absent, preserve the legacy same-key behavior.
+7. Production key generation, Render secret writes, Vercel/Cloudflare public configuration, Neon mutations, and deployment are separate gated operations after development validation.
 
 ## Acceptance criteria
 
 - With only the existing signing key configured, the endpoint returns the same single-key JWKS shape.
 - With an additional public key, the endpoint returns both keys and no private key material.
 - Invalid or conflicting additional keys fail closed with HTTP 503.
+- A user token signed by the frontend remains valid when Render's Neon service signer is different, using only the frontend public verification key.
 - No signing secret is added to source, documentation, logs, or test fixtures.
 - Nexus remains on `development`; changes stay uncommitted until Toni validates them.

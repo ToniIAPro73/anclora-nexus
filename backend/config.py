@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     NEON_DATA_API_URL: Optional[str] = None
     NEON_JWT_PRIVATE_KEY: Optional[str] = None
     NEON_JWT_KEY_ID: Optional[str] = None
+    # The backend verifies Vercel-issued user access tokens with public material only.
+    # Neon Data API service-token signing remains on the private key above.
+    NEXUS_ACCESS_JWT_PUBLIC_KEY: Optional[str] = None
+    NEXUS_ACCESS_JWT_KEY_ID: Optional[str] = None
     NEON_JWT_ISSUER: str = "anclora-nexus"
     NEON_JWT_AUDIENCE: str = "authenticated"
     NEON_SERVICE_JWT_TTL_SECONDS: int = 900

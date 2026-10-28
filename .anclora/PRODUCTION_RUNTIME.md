@@ -121,6 +121,9 @@ Local development utilizes production storage buckets/services according to the 
 
 AUTH_PROVIDER=Anclora Identity
 AUTH_SCOPE=production
+NEON_DATA_API_SERVICE_SIGNER=NEON_JWT_PRIVATE_KEY + NEON_JWT_KEY_ID (server-only; may differ by backend runtime)
+NEXUS_USER_ACCESS_TOKEN_VERIFIER=NEXUS_ACCESS_JWT_PUBLIC_KEY + NEXUS_ACCESS_JWT_KEY_ID (frontend public signer key; private material stays with frontend signer)
+FRONTEND_HOSTING_MIGRATION=Vercel to Cloudflare planned; keep signer/verifier roles and the public JWKS URL provider-portable during cutover
 
 ## 7. External Services & Integrations
 

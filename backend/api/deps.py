@@ -25,19 +25,31 @@ def verify_nexus_access_token(token: str):
         encoded_header, encoded_claims, encoded_signature = token.split(".")
         header = json.loads(_decode_b64url(encoded_header))
         claims = json.loads(_decode_b64url(encoded_claims))
-        if header.get("alg") != "ES256" or header.get("kid") != settings.NEON_JWT_KEY_ID:
+        public_key_pem = settings.NEXUS_ACCESS_JWT_PUBLIC_KEY
+        if public_key_pem:
+            expected_key_id = settings.NEXUS_ACCESS_JWT_KEY_ID
+            if not expected_key_id:
+                return None
+            public_key = serialization.load_pem_public_key(
+                public_key_pem.replace("\\n", "\n").encode("utf-8")
+            )
+        else:
+            expected_key_id = settings.NEON_JWT_KEY_ID
+            private_pem = (settings.NEON_JWT_PRIVATE_KEY or "").replace("\\n", "\n")
+            if not private_pem:
+                return None
+            private_key = serialization.load_pem_private_key(private_pem.encode(), password=None)
+            public_key = private_key.public_key()
+
+        if header.get("alg") != "ES256" or header.get("kid") != expected_key_id:
             return None
-        pem = (settings.NEON_JWT_PRIVATE_KEY or "").replace("\\n", "\n")
-        if not pem:
-            return None
-        private_key = serialization.load_pem_private_key(pem.encode(), password=None)
-        if not isinstance(private_key, ec.EllipticCurvePrivateKey) or not isinstance(private_key.curve, ec.SECP256R1):
+        if not isinstance(public_key, ec.EllipticCurvePublicKey) or not isinstance(public_key.curve, ec.SECP256R1):
             return None
         signature = _decode_b64url(encoded_signature)
         if len(signature) != 64:
             return None
         der_signature = encode_dss_signature(int.from_bytes(signature[:32], "big"), int.from_bytes(signature[32:], "big"))
-        private_key.public_key().verify(der_signature, f"{encoded_header}.{encoded_claims}".encode("ascii"), ec.ECDSA(hashes.SHA256()))
+        public_key.verify(der_signature, f"{encoded_header}.{encoded_claims}".encode("ascii"), ec.ECDSA(hashes.SHA256()))
         now = int(time.time())
         audience = claims.get("aud")
         if isinstance(audience, list):
