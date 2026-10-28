@@ -1,5 +1,5 @@
-import { createPublicKey } from 'node:crypto'
 import { NextResponse } from 'next/server'
+import { buildNeonJwks } from '@/lib/neon-jwks'
 
 export const runtime = 'nodejs'
 
@@ -11,15 +11,11 @@ export async function GET() {
   }
 
   try {
-    const publicJwk = createPublicKey(privateKeyPem).export({ format: 'jwk' })
-    if (publicJwk.kty !== 'EC' || publicJwk.crv !== 'P-256') {
-      return NextResponse.json({ error: 'Neon JWT signing key must be an EC P-256 key' }, { status: 503 })
-    }
     return NextResponse.json(
-      { keys: [{ ...publicJwk, kid: keyId, use: 'sig', alg: 'ES256' }] },
+      buildNeonJwks(privateKeyPem, keyId, process.env.NEON_JWT_ADDITIONAL_PUBLIC_KEYS),
       { headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=300' } }
     )
   } catch {
-    return NextResponse.json({ error: 'Neon JWT signing key is invalid' }, { status: 503 })
+    return NextResponse.json({ error: 'Neon JWT signing configuration is invalid' }, { status: 503 })
   }
 }
