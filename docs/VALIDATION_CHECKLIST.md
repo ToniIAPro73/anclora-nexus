@@ -1,54 +1,48 @@
-# Checklist de validación — recepción y revisión QA GuestHub/Data Lab (2026-10-28)
+# Checklist de validación — rotación de firma Neon Data API (2026-10-29)
 
 > Este fichero se sobrescribe en cada entrega. El historial queda en Git.
 
 **Repositorio:** anclora-nexus
 **Rama:** development
-**Validación en development:** Toni validó este cambio.
-**Datos:** no se enviaron solicitudes ni se modificaron solicitudes/membresías de usuarios.
+**Validación en development:** Toni validó el cambio.
+**Datos/servicios:** no se generaron claves ni se modificó configuración de Render, Vercel o Neon.
 
 ## 1. Qué cambia
 
-- Añade endpoints de ingreso QA independientes para GuestHub y Data Lab, con credenciales y marcadores de producto separados.
-- Las solicitudes quedan limitadas por la organización Nexus QA; el aprovisionamiento solo pide rol `qa` para solicitudes marcadas por el servidor.
-- No se registran secretos ni detalles de excepciones en respuestas o logs.
+- El endpoint `/api/neon-jwks` mantiene la clave pública derivada del firmante actual y permite publicar claves públicas P-256 adicionales durante una rotación.
+- La configuración adicional solo admite claves públicas con `kid` único; se rechazan campos privados y material/curvas no admitidos.
+- `.env.example` documenta `NEON_JWT_ADDITIONAL_PUBLIC_KEYS` como configuración pública opcional.
 
 ## 2. Ya comprobado por el agente
 
 | Comprobación | Comando o método | Resultado |
 | --- | --- | --- |
-| Pruebas focalizadas | `.venv/bin/pytest -q backend/tests/test_syncxml_pilot_routes.py backend/tests/test_identity_provisioning.py` | PASS; 36 pruebas |
-| Integridad | `git diff --check` | PASS |
-| Organización y revisora QA | Neon solo lectura: `Nexus Production QA`, scope `isolated-auth-qa`, una membresía activa y cero solicitudes | PASS |
-| Fallos Render | Eventos/logs solo lectura para ambos intentos recientes | Diagnóstico: falta `NEON_DATA_API_URL` |
+| Pruebas focalizadas | `npm test -- tests/neon-jwks.test.ts tests/anclora-identity.test.ts` | PASS; 7 pruebas |
+| Tipos del frontend | `npm run typecheck` | PASS |
+| Integridad del diff | `git diff --check` | PASS |
 
 ## 3. Pruebas no ejecutadas (NOT_RUN)
 
 | Prueba | Motivo concreto |
 | --- | --- |
-| Ingreso y aprobación real en Nexus | Endpoint QA no está desplegado ni dispone de secretos QA configurados. |
-| Revisión visual de Nexus con solicitud QA | No se creó solicitud; se requiere deployment con este cambio. |
+| Verificación del endpoint publicado y validación real de tokens firmados por Render | La nueva clave y la configuración de proveedores quedan para una fase posterior a esta revisión. |
+| Prueba visual de interfaz | El cambio afecta al endpoint JWKS y no modifica interfaz. |
 
 ## 4. Checklist para validar en la aplicación
 
 | # | Dónde | Pasos | Resultado esperado | Cuenta o configuración | Bloqueante |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Nexus Preview | Filtrar por producto y scope QA; revisar una solicitud enviada desde cada app | Solo la revisora QA puede aprobar y el evento queda auditado | `qa.nexus@anclora.local` | Sí |
-
-### Casos negativos y de borde
-
-- Credencial QA ausente o inválida: no se persiste ninguna solicitud.
-- Una solicitud de un org distinto no se puede consultar ni aprobar.
-- Los endpoints ordinarios no aceptan que el cliente marque el scope QA.
+| 1 | Desarrollo | Con clave adicional de prueba, consultar `/api/neon-jwks` y comprobar ambos `kid` y ausencia de campos privados | Devuelve las claves públicas configuradas; la clave actual sigue publicada | Claves de prueba no productivas | Sí, antes de configurar la rotación |
+| 2 | Configuración de plataforma | Tras aprobar la publicación, configurar el firmante separado de Render y comprobar el flujo de autorización | Neon acepta tokens válidos de ambos firmantes durante la transición | Clave privada solo en Render; JWK público en Nexus | Sí, antes de depender del firmante de Render |
 
 ## 5. Riesgos y limitaciones
 
-- Los dos últimos deployments de Render fallaron en arranque por `NEON_DATA_API_URL` ausente; el servicio live sigue en una revisión anterior.
-- El servicio Render disponible está ligado a `production`; no se cambió configuración ni se redeplegó.
-- No se hicieron solicitudes ni aprobaciones reales.
+- La publicación de claves adicionales depende de la configuración `NEON_JWT_ADDITIONAL_PUBLIC_KEYS` en el entorno que sirve `/api/neon-jwks`.
+- Este cambio no genera ni distribuye claves privadas, no modifica la clave de Vercel y no cambia Neon/Render/Vercel.
+- El JWKS conserva la política actual de caché de cinco minutos; los consumidores pueden retener claves durante la transición.
 
 ## 6. Decisión de Toni
 
 - [x] Cambios revisados y validados en development.
-- [ ] Todos los puntos bloqueantes del flujo desplegado pasan.
+- [ ] Validación de la rotación real con ambos firmantes completada.
 - [ ] Se promociona: escribir `PROMOTE=FULL`.
