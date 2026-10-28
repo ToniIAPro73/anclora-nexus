@@ -27,3 +27,11 @@
 - Revisar el flujo de Identity y las operaciones de datos/archivos con la cuenta QA persistente.
 - Aplicar las migraciones Neon conforme al proceso gobernado y verificar sus políticas.
 - Validar el build y el deployment de Vercel; mantener cambios sin commit hasta la validación de Toni.
+
+## Data Lab webhook credential (2026-10-28)
+
+- **Validación en development:** Toni confirmó que el cambio está verificado.
+- Prueba focalizada: `../.venv/bin/python -m pytest tests/test_syncxml_pilot_routes.py -k 'data_lab' -q` — PASS, 2 pruebas; 22 omitidas por filtro.
+- `git diff --check` — PASS.
+- La credencial dedicada se limita al endpoint de entrega de solicitudes de Data Lab; la prueba usa un cliente simulado y no modifica datos de producción.
+- Preview y producción quedan sujetos al flujo de promoción gobernado.
