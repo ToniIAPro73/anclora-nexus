@@ -514,3 +514,63 @@ async def test_webhook_missing_persisted_id_returns_500(webhook_app):
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "SYNCXML_PILOT_WEBHOOK_NOT_PERSISTED"
+
+
+@pytest.mark.anyio
+async def test_data_lab_webhook_accepts_dedicated_service_key(webhook_app):
+    payload = {
+        "applicant": {
+            "email": "qa-datalab@example.test",
+            "name": "Data Lab QA",
+            "organization_name": "QA workspace",
+        },
+        "source": "data_lab_app",
+        "request_type": "access_request",
+        "idempotency_key": "datalab-request-123",
+        "context": {"request_metadata": {"intended_use": "QA only"}},
+    }
+    with patch("backend.api.internal_webhooks.settings") as mock_settings, \
+         patch("backend.api.internal_webhooks._upsert_intake_access_request") as mock_upsert:
+        mock_settings.DATA_LAB_WEBHOOK_SECRET = "datalab-only-secret"
+        mock_settings.NEXUS_INTERNAL_API_KEY = None
+        mock_settings.LEGACY_SINGLE_TENANT_ORG_ID = "qa-org"
+        mock_settings.PUBLIC_CTA_ORG_ID = None
+        mock_upsert.return_value = {"id": "nexus-request-456", "idempotent": False}
+        async with AsyncClient(
+            transport=ASGITransport(app=webhook_app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/internal/webhooks/data-lab-access",
+                json=payload,
+                headers={"Authorization": "Bearer datalab-only-secret"},
+            )
+
+    assert response.status_code == 200
+    assert response.json()["request_id"] == "nexus-request-456"
+    mock_upsert.assert_called_once_with(
+        email="qa-datalab@example.test",
+        full_name="Data Lab QA",
+        product="data_lab",
+        source="data_lab_app",
+        request_type="access_request",
+        idempotency_key="datalab-request-123",
+        extra={"intended_use": "QA only", "company_name": "QA workspace"},
+    )
+
+
+@pytest.mark.anyio
+async def test_data_lab_service_key_cannot_call_guesthub_webhook(webhook_app):
+    with patch("backend.api.internal_webhooks.settings") as mock_settings:
+        mock_settings.DATA_LAB_WEBHOOK_SECRET = "datalab-only-secret"
+        mock_settings.GUESTHUB_WEBHOOK_SECRET = "guesthub-only-secret"
+        mock_settings.NEXUS_INTERNAL_API_KEY = None
+        async with AsyncClient(
+            transport=ASGITransport(app=webhook_app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/internal/webhooks/guesthub-pilot",
+                json={"email": "qa@example.test"},
+                headers={"Authorization": "Bearer datalab-only-secret"},
+            )
+
+    assert response.status_code == 403

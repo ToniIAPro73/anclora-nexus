@@ -16,14 +16,33 @@ router = APIRouter(prefix="/api/internal/webhooks", tags=["Internal Webhooks"])
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
-def get_api_key(api_key: str = Security(api_key_header)):
+def _validate_service_key(api_key: Optional[str], *expected_values: Optional[str]) -> str:
     if not api_key:
         raise HTTPException(status_code=403, detail="Missing API Key")
     token = api_key.replace("Bearer ", "").strip()
-    expected = settings.GUESTHUB_WEBHOOK_SECRET or settings.NEXUS_INTERNAL_API_KEY
-    if not expected or token != expected:
+    expected = {
+        value for value in expected_values
+        if isinstance(value, str) and value
+    }
+    if not expected or token not in expected:
         raise HTTPException(status_code=403, detail="Invalid API Key")
     return token
+
+
+def get_api_key(api_key: str = Security(api_key_header)):
+    return _validate_service_key(
+        api_key,
+        settings.GUESTHUB_WEBHOOK_SECRET,
+        settings.NEXUS_INTERNAL_API_KEY,
+    )
+
+
+def get_data_lab_api_key(api_key: str = Security(api_key_header)):
+    return _validate_service_key(
+        api_key,
+        settings.DATA_LAB_WEBHOOK_SECRET,
+        settings.NEXUS_INTERNAL_API_KEY,
+    )
 
 
 def _webhook_trace(payload: dict) -> Dict[str, Any]:
@@ -185,7 +204,7 @@ async def synergi_admission_webhook(payload: dict, api_key: str = Depends(get_ap
 
 
 @router.post("/data-lab-access")
-async def data_lab_access_webhook(payload: dict, api_key: str = Depends(get_api_key)):
+async def data_lab_access_webhook(payload: dict, api_key: str = Depends(get_data_lab_api_key)):
     """Receive Anclora Intake Contract v1 payload from Data Lab (access request)."""
     applicant = payload.get("applicant") or {}
     metadata = (payload.get("context") or {}).get("request_metadata") or {}

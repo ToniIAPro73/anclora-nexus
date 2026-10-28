@@ -112,6 +112,7 @@ class Settings(BaseSettings):
     ADVISOR_AI_BASE_URL: Optional[str] = None
     ADVISOR_AI_INTERNAL_API_KEY: Optional[str] = None
     NEXUS_INTERNAL_API_KEY: Optional[str] = None
+    DATA_LAB_WEBHOOK_SECRET: Optional[str] = None
     ADVISOR_AI_TIMEOUT_SECONDS: float = 12.0
 
     # Exclusiva Webhook Dispatcher (Req 15.1, 15.4)
