@@ -2,6 +2,7 @@ import logging
 from hashlib import sha256
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
@@ -43,6 +44,14 @@ def get_data_lab_api_key(api_key: str = Security(api_key_header)):
         settings.DATA_LAB_WEBHOOK_SECRET,
         settings.NEXUS_INTERNAL_API_KEY,
     )
+
+
+def get_guesthub_qa_api_key(api_key: str = Security(api_key_header)):
+    return _validate_service_key(api_key, settings.GUESTHUB_QA_WEBHOOK_SECRET)
+
+
+def get_data_lab_qa_api_key(api_key: str = Security(api_key_header)):
+    return _validate_service_key(api_key, settings.DATA_LAB_QA_WEBHOOK_SECRET)
 
 
 def _webhook_trace(payload: dict) -> Dict[str, Any]:
@@ -132,10 +141,12 @@ def _upsert_intake_access_request(
     source: str,
     request_type: str,
     idempotency_key: Optional[str],
+    org_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Insert a v1 intake contract record into access_requests, with idempotency."""
-    org_id = settings.LEGACY_SINGLE_TENANT_ORG_ID or settings.PUBLIC_CTA_ORG_ID
+    target_org_id = org_id or settings.LEGACY_SINGLE_TENANT_ORG_ID or settings.PUBLIC_CTA_ORG_ID
 
     # Idempotency: return the existing record if already processed
     if idempotency_key:
@@ -143,6 +154,7 @@ def _upsert_intake_access_request(
             neon_service.client
             .table("access_requests")
             .select("id,status")
+            .eq("org_id", target_org_id)
             .eq("idempotency_key", idempotency_key)
             .limit(1)
             .execute()
@@ -151,7 +163,7 @@ def _upsert_intake_access_request(
             return {"id": existing.data[0]["id"], "idempotent": True}
 
     record: Dict[str, Any] = {
-        "org_id": org_id,
+        "org_id": target_org_id,
         "email": email,
         "full_name": full_name,
         "product": product,
@@ -163,6 +175,8 @@ def _upsert_intake_access_request(
         "routing_target_domain": "access_requests",
         "idempotency_key": idempotency_key,
     }
+    if metadata:
+        record["metadata"] = metadata
     if extra:
         record.update(extra)
 
@@ -170,6 +184,24 @@ def _upsert_intake_access_request(
     if not result.data:
         raise RuntimeError("Failed to persist access request from intake forward")
     return {"id": result.data[0]["id"], "idempotent": False}
+
+
+def _qa_org_id(value: Optional[str]) -> str:
+    org_id = str(value or "").strip()
+    if not org_id:
+        raise HTTPException(status_code=503, detail="QA intake is not configured")
+    try:
+        return str(UUID(org_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="QA intake is not configured") from exc
+
+
+def _validate_qa_applicant_email(email: str, configured_email: Optional[str]) -> None:
+    expected = str(configured_email or "").strip().lower()
+    if not expected:
+        raise HTTPException(status_code=503, detail="QA intake is not configured")
+    if email.strip().lower() != expected:
+        raise HTTPException(status_code=403, detail="Applicant is not enabled for this QA flow")
 
 
 @router.post("/synergi-admission")
@@ -232,6 +264,72 @@ async def data_lab_access_webhook(payload: dict, api_key: str = Depends(get_data
         raise HTTPException(status_code=500, detail="Failed to persist data lab access request") from exc
 
     return {"status": "accepted", "request_id": result.get("id"), "idempotent": result.get("idempotent", False)}
+
+
+@router.post("/guesthub-qa-pilot")
+async def guesthub_qa_pilot_webhook(payload: dict, api_key: str = Depends(get_guesthub_qa_api_key)):
+    """Persist QA pilot requests only in the explicitly configured QA org."""
+    applicant = payload.get("applicant") or {}
+    email = str(applicant.get("email") or "").strip().lower()
+    full_name = str(applicant.get("name") or "").strip()
+    if not email or not full_name:
+        raise HTTPException(status_code=422, detail="applicant.email and applicant.name are required")
+    _validate_qa_applicant_email(email, settings.GUESTHUB_QA_APPLICANT_EMAIL)
+
+    try:
+        result = _upsert_intake_access_request(
+            email=email,
+            full_name=full_name,
+            product="guesthub",
+            source="guesthub_app",
+            request_type="pilot_request",
+            idempotency_key=payload.get("idempotency_key"),
+            org_id=_qa_org_id(settings.GUESTHUB_QA_ORG_ID),
+            metadata={"qa_scope": "guesthub"},
+            extra={"company": applicant.get("organization_name")},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("GuestHub QA intake persistence failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Failed to persist QA pilot request") from exc
+
+    return {"status": "accepted", "request_id": result["id"], "idempotent": result.get("idempotent", False)}
+
+
+@router.post("/data-lab-qa-access")
+async def data_lab_qa_access_webhook(payload: dict, api_key: str = Depends(get_data_lab_qa_api_key)):
+    """Persist Data Lab QA requests only in the explicitly configured QA org."""
+    applicant = payload.get("applicant") or {}
+    context = (payload.get("context") or {}).get("request_metadata") or {}
+    email = str(applicant.get("email") or "").strip().lower()
+    full_name = str(applicant.get("name") or "").strip()
+    if not email or not full_name:
+        raise HTTPException(status_code=422, detail="applicant.email and applicant.name are required")
+    _validate_qa_applicant_email(email, settings.DATA_LAB_QA_APPLICANT_EMAIL)
+
+    try:
+        result = _upsert_intake_access_request(
+            email=email,
+            full_name=full_name,
+            product="data_lab",
+            source="data_lab_app",
+            request_type="access_request",
+            idempotency_key=payload.get("idempotency_key"),
+            org_id=_qa_org_id(settings.DATA_LAB_QA_ORG_ID),
+            metadata={"qa_scope": "data-lab"},
+            extra={
+                "intended_use": context.get("intended_use"),
+                "company": applicant.get("organization_name"),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Data Lab QA intake persistence failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Failed to persist QA access request") from exc
+
+    return {"status": "accepted", "request_id": result["id"], "idempotent": result.get("idempotent", False)}
 
 
 @router.post("/dms-retention-sweep")

@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     GUESTHUB_APP_URL: str = Field(default="https://anclora-syncxml.vercel.app", validation_alias=AliasChoices("GUESTHUB_APP_URL", "SYNCXML_APP_URL"))
     GUESTHUB_LOGIN_URL: str = Field(default="https://anclora-syncxml.vercel.app/login", validation_alias=AliasChoices("GUESTHUB_LOGIN_URL", "SYNCXML_LOGIN_URL"))
     GUESTHUB_WEBHOOK_SECRET: Optional[str] = Field(default=None, validation_alias=AliasChoices("GUESTHUB_WEBHOOK_SECRET", "SYNCXML_WEBHOOK_SECRET"))
+    # Isolated QA intake is intentionally independent from the operational org/key.
+    GUESTHUB_QA_WEBHOOK_SECRET: Optional[str] = None
+    GUESTHUB_QA_ORG_ID: Optional[str] = None
+    GUESTHUB_QA_APPLICANT_EMAIL: Optional[str] = None
     GUESTHUB_INTERNAL_API_URL: str = Field(default="https://anclora-syncxml.vercel.app/api/internal/pilot-users", validation_alias=AliasChoices("GUESTHUB_INTERNAL_API_URL", "SYNCXML_INTERNAL_API_URL"))
     GUESTHUB_INTERNAL_API_SECRET: Optional[str] = Field(default=None, validation_alias=AliasChoices("GUESTHUB_INTERNAL_API_SECRET", "SYNCXML_INTERNAL_API_SECRET"))
     GUESTHUB_PILOT_AUTO_APPROVE: bool = Field(default=False, validation_alias=AliasChoices("GUESTHUB_PILOT_AUTO_APPROVE", "SYNCXML_PILOT_AUTO_APPROVE"))
@@ -113,6 +117,9 @@ class Settings(BaseSettings):
     ADVISOR_AI_INTERNAL_API_KEY: Optional[str] = None
     NEXUS_INTERNAL_API_KEY: Optional[str] = None
     DATA_LAB_WEBHOOK_SECRET: Optional[str] = None
+    DATA_LAB_QA_WEBHOOK_SECRET: Optional[str] = None
+    DATA_LAB_QA_ORG_ID: Optional[str] = None
+    DATA_LAB_QA_APPLICANT_EMAIL: Optional[str] = None
     ADVISOR_AI_TIMEOUT_SECONDS: float = 12.0
 
     # Exclusiva Webhook Dispatcher (Req 15.1, 15.4)

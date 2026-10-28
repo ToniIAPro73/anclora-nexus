@@ -163,6 +163,11 @@ QA_CREATE_IF_MISSING=true
 QA_DELETE_AFTER_TEST=false
 QA_CREATION_CONFIRMATION_REQUIRED=false
 QA_PERSISTENT_IDENTITY=qa.nexus@anclora.local
+QA_ACCESS_REQUEST_IDENTITY=tonipmi.test@gmail.com (requester only; not a Nexus reviewer)
+QA_ACCESS_REQUEST_NAMESPACES=Both product-specific QA intake settings may target the verified shared Nexus QA organization; intake credentials and server-owned product markers remain separate
+QA_ACCESS_REQUEST_CREDENTIALS=GUESTHUB_QA_WEBHOOK_SECRET and DATA_LAB_QA_WEBHOOK_SECRET, separate from operational webhook credentials; QA applicant email allowlists are configured independently
+QA_REVIEWER_IDENTITY=qa.nexus@anclora.local; verified active Identity anclora-nexus membership and active Nexus owner membership in the isolated QA organization
+QA_ACCESS_REQUEST_STATUS=existing organization Nexus Production QA verified (scope=isolated-auth-qa; one active reviewer; zero access requests); provider-side QA secrets and frontend environment configuration remain pending
 
 For dedicated human QA: Use designated production test identity. Never use Toni's personal account or operational admins as QA accounts. Never delete test account after testing.
 

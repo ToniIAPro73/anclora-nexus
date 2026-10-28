@@ -1,37 +1,54 @@
-# Cutover runtime — Anclora Nexus
+# Checklist de validación — recepción y revisión QA GuestHub/Data Lab (2026-10-28)
 
-**Rama:** `development`
-**Estado del código:** preparado localmente y pendiente de validación del usuario.
-**Runtime objetivo:** Vercel, Neon PostgreSQL/Neon Data API, Anclora Identity y Vercel Blob.
+> Este fichero se sobrescribe en cada entrega. El historial queda en Git.
 
-## Implementado en este cambio
+**Repositorio:** anclora-nexus
+**Rama:** development
+**Validación en development:** Toni validó este cambio.
+**Datos:** no se enviaron solicitudes ni se modificaron solicitudes/membresías de usuarios.
 
-- El frontend y backend usan Neon Data API para operaciones de aplicación.
-- La autenticación y las sesiones de usuario usan Anclora Identity.
-- Los documentos y avatares usan Vercel Blob.
-- Se retiraron los clientes, rutas y credenciales de proveedores anteriores del runtime.
-- Se actualizaron las políticas de Neon para utilizar los claims de identidad compatibles con Neon.
-- Los scripts de operación de datos ahora se conectan a Neon.
+## 1. Qué cambia
 
-## Validación y límites
+- Añade endpoints de ingreso QA independientes para GuestHub y Data Lab, con credenciales y marcadores de producto separados.
+- Las solicitudes quedan limitadas por la organización Nexus QA; el aprovisionamiento solo pide rol `qa` para solicitudes marcadas por el servidor.
+- No se registran secretos ni detalles de excepciones en respuestas o logs.
 
-- `cd backend && ../.venv/bin/python -m pytest -q`: **964 passed, 1 skipped**. The skipped FinOps QA mutates Neon data and now requires explicit opt-in with `NEON_FINOPS_LIVE_TESTS=1`.
-- Backend Python compilation: `python3 -m compileall -q backend` passed.
-- Frontend checks passed: `npm run lint`, `npm test -w frontend` (19 tests), `npm run typecheck -w frontend`, `npm run build`, and `npm run ops:guesthub-pilot:check-env`.
-- DMS route tests use an in-memory Blob stub; they do not require production Blob credentials.
-- No remote database migration was applied and no deployment was performed in this validation pass.
-- Historical documents and SQL retain Supabase references where they describe the old architecture. They are archived evidence, not runtime configuration; the active migration guide is `neon/migrations/README.md`.
+## 2. Ya comprobado por el agente
 
-## Siguiente validación
+| Comprobación | Comando o método | Resultado |
+| --- | --- | --- |
+| Pruebas focalizadas | `.venv/bin/pytest -q backend/tests/test_syncxml_pilot_routes.py backend/tests/test_identity_provisioning.py` | PASS; 36 pruebas |
+| Integridad | `git diff --check` | PASS |
+| Organización y revisora QA | Neon solo lectura: `Nexus Production QA`, scope `isolated-auth-qa`, una membresía activa y cero solicitudes | PASS |
+| Fallos Render | Eventos/logs solo lectura para ambos intentos recientes | Diagnóstico: falta `NEON_DATA_API_URL` |
 
-- Revisar el flujo de Identity y las operaciones de datos/archivos con la cuenta QA persistente.
-- Aplicar las migraciones Neon conforme al proceso gobernado y verificar sus políticas.
-- Validar el build y el deployment de Vercel; mantener cambios sin commit hasta la validación de Toni.
+## 3. Pruebas no ejecutadas (NOT_RUN)
 
-## Data Lab webhook credential (2026-10-28)
+| Prueba | Motivo concreto |
+| --- | --- |
+| Ingreso y aprobación real en Nexus | Endpoint QA no está desplegado ni dispone de secretos QA configurados. |
+| Revisión visual de Nexus con solicitud QA | No se creó solicitud; se requiere deployment con este cambio. |
 
-- **Validación en development:** Toni confirmó que el cambio está verificado.
-- Prueba focalizada: `../.venv/bin/python -m pytest tests/test_syncxml_pilot_routes.py -k 'data_lab' -q` — PASS, 2 pruebas; 22 omitidas por filtro.
-- `git diff --check` — PASS.
-- La credencial dedicada se limita al endpoint de entrega de solicitudes de Data Lab; la prueba usa un cliente simulado y no modifica datos de producción.
-- Preview y producción quedan sujetos al flujo de promoción gobernado.
+## 4. Checklist para validar en la aplicación
+
+| # | Dónde | Pasos | Resultado esperado | Cuenta o configuración | Bloqueante |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Nexus Preview | Filtrar por producto y scope QA; revisar una solicitud enviada desde cada app | Solo la revisora QA puede aprobar y el evento queda auditado | `qa.nexus@anclora.local` | Sí |
+
+### Casos negativos y de borde
+
+- Credencial QA ausente o inválida: no se persiste ninguna solicitud.
+- Una solicitud de un org distinto no se puede consultar ni aprobar.
+- Los endpoints ordinarios no aceptan que el cliente marque el scope QA.
+
+## 5. Riesgos y limitaciones
+
+- Los dos últimos deployments de Render fallaron en arranque por `NEON_DATA_API_URL` ausente; el servicio live sigue en una revisión anterior.
+- El servicio Render disponible está ligado a `production`; no se cambió configuración ni se redeplegó.
+- No se hicieron solicitudes ni aprobaciones reales.
+
+## 6. Decisión de Toni
+
+- [x] Cambios revisados y validados en development.
+- [ ] Todos los puntos bloqueantes del flujo desplegado pasan.
+- [ ] Se promociona: escribir `PROMOTE=FULL`.

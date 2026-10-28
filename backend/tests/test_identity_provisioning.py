@@ -98,6 +98,29 @@ async def test_provision_caso_a_new_identity(provisioning_service):
 
 
 @pytest.mark.anyio
+async def test_qa_scoped_request_provisions_only_the_qa_application_role(provisioning_service):
+    with patch.object(provisioning_service, "lookup_identity", new_callable=AsyncMock) as mock_lookup, \
+         patch.object(provisioning_service, "create_invitation", new_callable=AsyncMock) as mock_invite:
+        mock_lookup.return_value = None
+        mock_invite.return_value = {"invitationId": "qa-invitation-1"}
+        result = await provisioning_service.provision_approved_request({
+            "id": "qa-request-1",
+            "email": "qa@example.test",
+            "product": "data_lab",
+            "metadata": {"qa_scope": "data-lab"},
+        }, reviewer_id="qa-reviewer")
+
+    assert result["provisioning_status"] == "invite_ready"
+    mock_invite.assert_awaited_once_with(
+        application_id="data-lab",
+        email="qa@example.test",
+        reviewer_id="qa-reviewer",
+        locale="es",
+        application_role="qa",
+    )
+
+
+@pytest.mark.anyio
 async def test_provision_caso_b_existing_identity(provisioning_service):
     """CASO B: Identity exists -> grant direct application membership."""
     with patch.object(provisioning_service, "lookup_identity", new_callable=AsyncMock) as mock_lookup, \
@@ -270,7 +293,8 @@ async def test_provision_fail_closed_network_error(provisioning_service):
         req = {"id": "req-fc-2", "email": "err@example.com", "product": "synergi"}
         res = await provisioning_service.provision_approved_request(req, reviewer_id="rev-1")
         assert res["provisioning_status"] == "failed"
-        assert "Network connection refused" in res["provisioning_error"]
+        assert res["provisioning_error"] == "Identity provisioning failed (Exception)"
+        assert "Network connection refused" not in res["provisioning_error"]
         assert res["identity_subject_id"] is None
         assert res["identity_invitation_id"] is None
         assert res["membership_id"] is None

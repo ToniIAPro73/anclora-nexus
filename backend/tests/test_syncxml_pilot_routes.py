@@ -574,3 +574,57 @@ async def test_data_lab_service_key_cannot_call_guesthub_webhook(webhook_app):
             )
 
     assert response.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_guesthub_qa_webhook_uses_only_configured_qa_org_and_server_owned_marker(webhook_app):
+    payload = {
+        "applicant": {"email": "qa@example.test", "name": "QA Applicant"},
+        "idempotency_key": "guesthub-qa-idempotency-1",
+        "org_id": "attacker-selected-org",
+        "metadata": {"qa_scope": "production"},
+    }
+    with patch("backend.api.internal_webhooks.settings") as mock_settings, \
+         patch("backend.api.internal_webhooks._upsert_intake_access_request") as mock_upsert:
+        mock_settings.GUESTHUB_QA_WEBHOOK_SECRET = "guesthub-qa-only-secret"
+        mock_settings.GUESTHUB_QA_ORG_ID = "11111111-1111-4111-8111-111111111111"
+        mock_settings.GUESTHUB_QA_APPLICANT_EMAIL = "qa@example.test"
+        mock_upsert.return_value = {"id": "qa-request-1", "idempotent": False}
+        async with AsyncClient(transport=ASGITransport(app=webhook_app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/internal/webhooks/guesthub-qa-pilot",
+                json=payload,
+                headers={"Authorization": "Bearer guesthub-qa-only-secret"},
+            )
+
+    assert response.status_code == 200
+    assert response.json()["request_id"] == "qa-request-1"
+    mock_upsert.assert_called_once_with(
+        email="qa@example.test",
+        full_name="QA Applicant",
+        product="guesthub",
+        source="guesthub_app",
+        request_type="pilot_request",
+        idempotency_key="guesthub-qa-idempotency-1",
+        org_id="11111111-1111-4111-8111-111111111111",
+        metadata={"qa_scope": "guesthub"},
+        extra={"company": None},
+    )
+
+
+@pytest.mark.anyio
+async def test_data_lab_qa_webhook_fails_before_persistence_when_org_is_unconfigured(webhook_app):
+    with patch("backend.api.internal_webhooks.settings") as mock_settings, \
+         patch("backend.api.internal_webhooks._upsert_intake_access_request") as mock_upsert:
+        mock_settings.DATA_LAB_QA_WEBHOOK_SECRET = "data-lab-qa-only-secret"
+        mock_settings.DATA_LAB_QA_ORG_ID = None
+        mock_settings.DATA_LAB_QA_APPLICANT_EMAIL = "qa@example.test"
+        async with AsyncClient(transport=ASGITransport(app=webhook_app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/internal/webhooks/data-lab-qa-access",
+                json={"applicant": {"email": "qa@example.test", "name": "QA Applicant"}},
+                headers={"Authorization": "Bearer data-lab-qa-only-secret"},
+            )
+
+    assert response.status_code == 503
+    mock_upsert.assert_not_called()

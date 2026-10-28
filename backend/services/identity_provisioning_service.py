@@ -79,6 +79,7 @@ class IdentityProvisioningService:
         email: str,
         reviewer_id: Optional[str] = None,
         locale: str = "es",
+        application_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         """CASO A: Create invitation for new identity in target application."""
         url = f"{self.base_url}/api/v1/admin/apps/{application_id}/invitations"
@@ -91,6 +92,8 @@ class IdentityProvisioningService:
             "invitedByIdentityUserId": reviewer_id,
             "locale": locale,
         }
+        if application_role:
+            payload["applicationRole"] = application_role
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
@@ -103,6 +106,7 @@ class IdentityProvisioningService:
         self,
         application_id: str,
         identity_user_id: str,
+        application_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         """CASO B: Grant direct membership in target application for existing identity."""
         url = f"{self.base_url}/api/v1/admin/apps/{application_id}/memberships"
@@ -113,6 +117,8 @@ class IdentityProvisioningService:
         payload = {
             "identityUserId": identity_user_id,
         }
+        if application_role:
+            payload["applicationRole"] = application_role
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
@@ -136,6 +142,9 @@ class IdentityProvisioningService:
         email = request.get("email")
         product = request.get("product")
         app_id = self._normalize_app_id(product)
+        metadata = request.get("metadata") if isinstance(request.get("metadata"), dict) else {}
+        qa_scope = metadata.get("qa_scope")
+        qa_application_role = "qa" if qa_scope == app_id and app_id in {"guesthub", "data-lab"} else None
 
         # Fail-closed: when Identity is not configured or disabled,
         # never simulate invitations or memberships. Set status to 'pending' with clear error.
@@ -158,7 +167,11 @@ class IdentityProvisioningService:
             if user and user.get("id"):
                 # CASO B: Existing identity user -> grant application membership
                 identity_user_id = user["id"]
-                membership_res = await self.grant_membership(app_id, identity_user_id)
+                membership_res = (
+                    await self.grant_membership(app_id, identity_user_id, application_role=qa_application_role)
+                    if qa_application_role
+                    else await self.grant_membership(app_id, identity_user_id)
+                )
                 membership_id = membership_res.get("membershipId") or membership_res.get("membership", {}).get("id")
                 return {
                     "provisioning_status": "provisioned",
@@ -168,12 +181,15 @@ class IdentityProvisioningService:
                 }
             else:
                 # CASO A: New identity -> create invitation
-                invitation_res = await self.create_invitation(
-                    application_id=app_id,
-                    email=email,
-                    reviewer_id=reviewer_id,
-                    locale=request.get("submission_language", "es"),
-                )
+                invitation_params = {
+                    "application_id": app_id,
+                    "email": email,
+                    "reviewer_id": reviewer_id,
+                    "locale": request.get("submission_language", "es"),
+                }
+                if qa_application_role:
+                    invitation_params["application_role"] = qa_application_role
+                invitation_res = await self.create_invitation(**invitation_params)
                 invitation = invitation_res.get("invitation", {})
                 invitation_id = invitation_res.get("invitationId") or invitation.get("id")
                 return {
@@ -185,10 +201,14 @@ class IdentityProvisioningService:
                     "provisioning_case": "CASO_A",
                 }
         except Exception as e:
-            logger.error(f"Identity provisioning failed for request {request.get('id')}: {e}", exc_info=True)
+            error_type = type(e).__name__
+            logger.error(
+                "Identity provisioning failed",
+                extra={"request_id": request.get("id"), "error_type": error_type},
+            )
             return {
                 "provisioning_status": "failed",
-                "provisioning_error": str(e),
+                "provisioning_error": f"Identity provisioning failed ({error_type})",
                 "provisioning_case": "ERROR",
                 "identity_subject_id": None,
                 "identity_invitation_id": None,
