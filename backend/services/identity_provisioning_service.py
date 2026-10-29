@@ -179,6 +179,28 @@ class IdentityProvisioningService:
                 _safe_identity_response(resp),
             )
 
+    async def resend_invitation(
+        self,
+        application_id: str,
+        invitation_id: str,
+        locale: str = "es",
+    ) -> Dict[str, Any]:
+        """Rotate and resend an existing pending Identity invitation."""
+        url = f"{self.base_url}/api/v1/admin/apps/{application_id}/invitations/{invitation_id}/resend"
+        headers = {
+            "Authorization": f"Bearer {self.service_token}",
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json={"locale": locale}, headers=headers)
+            if resp.status_code in (200, 201):
+                return resp.json()
+            raise IdentityProvisioningError(
+                "Resend invitation",
+                resp.status_code,
+                _safe_identity_response(resp),
+            )
+
     async def grant_membership(
         self,
         application_id: str,

@@ -62,6 +62,22 @@ async def test_lookup_identity_not_found(provisioning_service):
 
 
 @pytest.mark.anyio
+async def test_resend_invitation_rotates_a_pending_identity_invitation(provisioning_service):
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"outcome": "RESENT", "invitationId": "inv-qa"}
+        mock_post.return_value = mock_resp
+
+        result = await provisioning_service.resend_invitation("data-lab", "inv-qa")
+
+    assert result == {"outcome": "RESENT", "invitationId": "inv-qa"}
+    args, kwargs = mock_post.call_args
+    assert args[0].endswith("/api/v1/admin/apps/data-lab/invitations/inv-qa/resend")
+    assert kwargs["json"] == {"locale": "es"}
+
+
+@pytest.mark.anyio
 async def test_provision_caso_a_new_identity(provisioning_service):
     """CASO A: Identity does not exist -> create invitation."""
     with patch.object(provisioning_service, "lookup_identity", new_callable=AsyncMock) as mock_lookup, \

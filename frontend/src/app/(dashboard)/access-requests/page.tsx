@@ -274,7 +274,11 @@ export default function AccessRequestsPage() {
     try {
       const payload = await retryAccessRequestProvisioning(selected.id)
       setSelected(payload)
-      setSuccess(t('accessRequestsProvisioningRetrySaved'))
+      setSuccess(
+        payload.lifecycle?.provisioning_status === 'invite_ready'
+          ? t('accessRequestsInvitationResendSaved')
+          : t('accessRequestsProvisioningRetrySaved'),
+      )
       if (payload.lifecycle) setLifecycle(payload.lifecycle)
       else await loadLifecycle(payload.id)
       await Promise.all([loadAudit(payload.id), loadList(), loadAnalytics()])

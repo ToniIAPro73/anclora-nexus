@@ -69,7 +69,13 @@ export function AccessRequestLifecyclePanel({
           {lifecycle?.provisioning_retry_available ? (
             <button type="button" className="btn-action h-10 px-4" onClick={onRetryProvisioning} disabled={retryingProvisioning}>
               <RefreshCw className={`h-4 w-4 ${retryingProvisioning ? 'animate-spin' : ''}`} />
-              {retryingProvisioning ? t('accessRequestsProvisioningRetrying') : t('accessRequestsProvisioningRetry')}
+              {retryingProvisioning
+                ? lifecycle.provisioning_status === 'invite_ready'
+                  ? t('accessRequestsInvitationResending')
+                  : t('accessRequestsProvisioningRetrying')
+                : lifecycle.provisioning_status === 'invite_ready'
+                  ? t('accessRequestsInvitationResend')
+                  : t('accessRequestsProvisioningRetry')}
             </button>
           ) : null}
           {lifecycle?.retry_available ? (

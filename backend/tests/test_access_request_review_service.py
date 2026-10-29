@@ -586,6 +586,40 @@ async def test_retry_provisioning_rejects_existing_identity(monkeypatch, service
 
 
 @pytest.mark.anyio
+async def test_retry_provisioning_resends_existing_pending_identity_invitation(monkeypatch, service):
+    row = {
+        **access_request_record("request-qa", status="approved", product="data_lab"),
+        "provisioning_status": "invite_ready",
+        "identity_invitation_id": "identity-invitation-1",
+    }
+    audit_service = MockAuditService()
+    monkeypatch.setattr(
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient([row]),
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.access_request_audit_service",
+        audit_service,
+    )
+    resend = AsyncMock(return_value={"outcome": "RESENT", "invitationId": "identity-invitation-1"})
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.resend_invitation",
+        resend,
+    )
+
+    result = await service.retry_provisioning(ORG_ID, "request-qa", REVIEWER_ID)
+
+    resend.assert_awaited_once_with(
+        application_id="data-lab",
+        invitation_id="identity-invitation-1",
+        locale="es",
+    )
+    assert result["identity_invitation_id"] == "identity-invitation-1"
+    assert result["provisioning_status"] == "invite_ready"
+    assert audit_service.events[-1]["event_type"] == "access_request.invitation_email_retry_succeeded"
+
+
+@pytest.mark.anyio
 async def test_reject_pending_sets_rejection_reason(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(

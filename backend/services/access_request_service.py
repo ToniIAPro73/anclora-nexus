@@ -631,6 +631,48 @@ class AccessRequestService:
             raise AccessRequestInvalidTransitionError(
                 f"Access request {request_id} must be approved before provisioning retry"
             )
+        invitation_id = record.get("identity_invitation_id")
+        if invitation_id:
+            if (
+                record.get("provisioning_status") != AccessRequestProvisioningStatus.INVITE_READY.value
+                or record.get("identity_subject_id")
+                or record.get("membership_id")
+            ):
+                raise AccessRequestInvalidTransitionError(
+                    f"Access request {request_id} is not eligible for invitation resend"
+                )
+            application_id = identity_provisioning_service._normalize_app_id(record.get("product"))
+            try:
+                await identity_provisioning_service.resend_invitation(
+                    application_id=application_id,
+                    invitation_id=str(invitation_id),
+                    locale=record.get("submission_language", "es"),
+                )
+            except Exception as error:
+                await access_request_audit_service.log_event(
+                    org_id=org_id,
+                    access_request_id=request_id,
+                    event_type="access_request.invitation_email_retry_failed",
+                    actor_id=reviewer_id,
+                    actor_type="user",
+                    metadata={"error": str(error)[:500]},
+                )
+                raise
+            await access_request_audit_service.log_event(
+                org_id=org_id,
+                access_request_id=request_id,
+                event_type="access_request.invitation_email_retry_succeeded",
+                actor_id=reviewer_id,
+                actor_type="user",
+                metadata={"identity_invitation_id": str(invitation_id)},
+            )
+            updated = await self.get_request(org_id=org_id, request_id=request_id)
+            updated["lifecycle"] = self._build_lifecycle(
+                updated,
+                await self.list_audit_events(org_id, request_id),
+            ).model_dump(mode="json")
+            return updated
+
         if any(
             record.get(field)
             for field in ("identity_subject_id", "identity_invitation_id", "membership_id")
@@ -855,14 +897,24 @@ class AccessRequestService:
             and email_status != AccessRequestEmailStatus.SENT,
             provisioning_retry_available=(
                 status == AccessRequestStatus.APPROVED.value
-                and not any(record.get(field) for field in (
-                    "identity_subject_id", "identity_invitation_id", "membership_id"
-                ))
-                and record.get("provisioning_status") in {
-                    None,
-                    AccessRequestProvisioningStatus.FAILED.value,
-                    AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
-                }
+                and (
+                    (
+                        bool(record.get("identity_invitation_id"))
+                        and not record.get("identity_subject_id")
+                        and not record.get("membership_id")
+                        and record.get("provisioning_status") == AccessRequestProvisioningStatus.INVITE_READY.value
+                    )
+                    or (
+                        not any(record.get(field) for field in (
+                            "identity_subject_id", "identity_invitation_id", "membership_id"
+                        ))
+                        and record.get("provisioning_status") in {
+                            None,
+                            AccessRequestProvisioningStatus.FAILED.value,
+                            AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
+                        }
+                    )
+                )
             ),
             last_event_at=self._derive_last_event_at(record, audit_events),
         )
