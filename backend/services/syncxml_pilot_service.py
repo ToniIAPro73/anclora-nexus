@@ -195,30 +195,36 @@ class SyncXmlPilotService:
             "privacy_accepted": payload.acceptsPilotConditions,
             "gdpr_consent": payload.acceptsPilotConditions,
             "submission_language": payload.locale,
-            "status": "pending",
+            "status": final_status,
             "metadata": {
                 **metadata,
                 "request_type": "syncxml_pilot",
                 "has_own_synthetic_or_anonymized_sample": payload.acceptsSyntheticOrAnonymizedData,
                 "needsSyntheticSampleAttachments": payload.raw.get("needsSyntheticSampleAttachments") is True
                 or payload.acceptsSyntheticOrAnonymizedData is False,
-                "review_mode": "ai_review_pending",
+                "review_mode": "automatic" if final_status in {"approved", "rejected"} else "manual_review",
                 "ai_review": review_result,
             },
         }
+        if final_status == "rejected":
+            record_data["rejection_reason"] = review_result.get("emailReasonUser") or "Fuera del alcance actual del piloto."
 
         try:
             if idempotency_key:
                 existing = (
                     neon_service.client.table("access_requests")
-                    .select("id,status,email,created_at,idempotency_key")
+                    .select("*")
                     .eq("idempotency_key", idempotency_key)
                     .limit(1)
                     .execute()
                 )
                 if existing.data:
+                    existing_record = existing.data[0]
                     logger.info("SyncXML pilot webhook idempotent replay", extra=trace)
-                    return existing.data[0]
+                    if existing_record.get("status") == "pending":
+                        existing_review = (existing_record.get("metadata") or {}).get("ai_review") or review_result
+                        await self._create_review_task(existing_record, existing_review)
+                    return existing_record
 
             result = neon_service.client.table("access_requests").insert(record_data).execute()
             if not result.data:
@@ -228,25 +234,6 @@ class SyncXmlPilotService:
                 "SyncXML pilot access request inserted",
                 extra={**trace, "access_request_id": record.get("id")},
             )
-
-            update_data = {
-                "status": final_status,
-                "metadata": {
-                    **record_data["metadata"],
-                    "ai_review": review_result,
-                    "review_mode": "automatic" if final_status in {"approved", "rejected"} else "manual_review",
-                },
-            }
-            if final_status == "rejected":
-                update_data["rejection_reason"] = review_result.get("emailReasonUser") or "Fuera del alcance actual del piloto."
-
-            updated = (
-                neon_service.client.table("access_requests")
-                .update(update_data)
-                .eq("id", record["id"])
-                .execute()
-            )
-            record = updated.data[0] if updated.data else {**record, **update_data}
 
             if final_status == "pending":
                 await self._create_review_task(record, review_result)
@@ -381,8 +368,10 @@ class SyncXmlPilotService:
         if self._is_staging_safety_mode():
             logger.info("Blocked SyncXML review task creation in safety mode")
             return
+        request_id = str(record.get("id") or "")
+        org_id = record.get("org_id") or settings.PUBLIC_CTA_ORG_ID
         payload = {
-            "org_id": record.get("org_id") or settings.PUBLIC_CTA_ORG_ID,
+            "org_id": org_id,
             "title": f"Revisar piloto GuestHub · {record.get('email')}",
             "status": "pending",
             "task_type": "syncxml_pilot_review",
@@ -396,6 +385,18 @@ class SyncXmlPilotService:
             },
         }
         try:
+            if request_id:
+                existing = (
+                    neon_service.client.table("tasks")
+                    .select("id")
+                    .eq("org_id", org_id)
+                    .eq("task_type", "syncxml_pilot_review")
+                    .eq("entity_id", request_id)
+                    .limit(1)
+                    .execute()
+                )
+                if existing.data:
+                    return
             neon_service.client.table("tasks").insert(payload).execute()
         except Exception as exc:
             logger.warning("Could not create SyncXML review task: %s", exc)

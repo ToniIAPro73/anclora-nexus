@@ -20,6 +20,7 @@ class FakeAccessRequestsTable:
     def __init__(self):
         self.rows = []
         self.insert_count = 0
+        self.update_count = 0
         self._filters = []
         self._pending_update = {}
 
@@ -44,6 +45,7 @@ class FakeAccessRequestsTable:
         return FakeInsertQuery(stored)
 
     def update(self, data):
+        self.update_count += 1
         self._pending_update = data
         return self
 
@@ -300,6 +302,84 @@ async def test_syncxml_webhook_persists_explicit_access_request_contract_fields(
     assert record["request_type"] == "pilot_request"
     assert record["intake_domain"] == "access_request"
     assert record["routing_target_domain"] == "access_requests"
+
+
+@pytest.mark.asyncio
+async def test_syncxml_pending_request_is_persisted_without_update_permission():
+    access_table = FakeAccessRequestsTable()
+    task_table = Mock()
+
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
+        "backend.services.syncxml_pilot_service.settings"
+    ) as settings, patch.object(
+        syncxml_pilot_service, "_score_lead", new=AsyncMock(return_value={"decision": "approve", "score": 88, "riskFlags": []})
+    ), patch.object(
+        syncxml_pilot_service, "_create_review_task", new=AsyncMock()
+    ):
+        _configure_production_settings(settings, auto_approve=False)
+        neon.client.table.side_effect = lambda name: access_table if name == "access_requests" else task_table
+        result = await syncxml_pilot_service.process_incoming_lead(
+            _payload(requestId="insert-only-request", raw={"adminEmailSentBySyncxml": True})
+        )
+
+    record = access_table.rows[0]
+    assert result["status"] == "pending"
+    assert record["status"] == "pending"
+    assert record["metadata"]["review_mode"] == "manual_review"
+    assert record["metadata"]["ai_review"]["decision"] == "approve"
+    assert access_table.update_count == 0
+
+
+@pytest.mark.asyncio
+async def test_syncxml_idempotent_pending_retry_repairs_missing_review_task():
+    access_table = FakeAccessRequestsTable()
+    access_table.rows.append({
+        "id": "existing-request",
+        "org_id": "org_1",
+        "status": "pending",
+        "email": "ana@example.com",
+        "idempotency_key": "existing-request",
+        "metadata": {"ai_review": {"decision": "manual_review", "score": 0}},
+    })
+
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
+        "backend.services.syncxml_pilot_service.settings"
+    ) as settings, patch.object(
+        syncxml_pilot_service, "_score_lead", new=AsyncMock(return_value={"decision": "approve", "score": 88, "riskFlags": []})
+    ), patch.object(
+        syncxml_pilot_service, "_create_review_task", new=AsyncMock()
+    ) as create_review_task:
+        _configure_production_settings(settings, auto_approve=False)
+        neon.client.table.side_effect = lambda name: access_table
+        result = await syncxml_pilot_service.process_incoming_lead(
+            _payload(requestId="existing-request", raw={"idempotency_key": "existing-request"})
+        )
+
+    assert result["id"] == "existing-request"
+    create_review_task.assert_awaited_once_with(
+        access_table.rows[0], {"decision": "manual_review", "score": 0}
+    )
+
+
+@pytest.mark.asyncio
+async def test_syncxml_review_task_creation_is_idempotent():
+    task_table = Mock()
+    task_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.limit.return_value.execute.side_effect = [
+        FakeQueryResult([]),
+        FakeQueryResult([{"id": "task-existing"}]),
+    ]
+
+    with patch("backend.services.syncxml_pilot_service.neon_service") as neon, patch(
+        "backend.services.syncxml_pilot_service.settings"
+    ) as settings:
+        _configure_production_settings(settings)
+        neon.client.table.return_value = task_table
+        record = {"id": "request-existing", "org_id": "org_1", "email": "ana@example.com"}
+
+        await syncxml_pilot_service._create_review_task(record, {"decision": "manual_review"})
+        await syncxml_pilot_service._create_review_task(record, {"decision": "manual_review"})
+
+    task_table.insert.assert_called_once()
 
 
 @pytest.mark.asyncio

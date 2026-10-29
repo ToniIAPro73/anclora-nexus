@@ -22,6 +22,22 @@
 | Mapeo `company_name` → `company` sin escribir en Production | PASS; cliente Neon simulado |
 | `git diff --check` | PASS |
 
+## GuestHub producción: error 500 posterior al insert
+
+- Diagnóstico: `service_role` solo tiene `SELECT` e `INSERT` en `access_requests`; el handler intentaba actualizar la fila después de insertarla.
+- Los intentos `419d8117-df36-471f-a65d-b3a75c1e5106` y `d7431a55-ea12-4e3d-a4cb-ee94b07ec0df` sí existen con estado `pending`; ninguno tiene tarea `syncxml_pilot_review` asociada.
+- El rol de producción no tiene grants sobre `tasks`; la creación de tareas queda best-effort. Los registros de solicitud se guardan en `access_requests`, que es lo que consulta la bandeja de solicitudes.
+- Corrección local: insertar el estado y metadatos ya calculados; los reintentos devuelven la fila existente sin duplicarla.
+- Aprobación automática de GuestHub configurada explícitamente como `false` en Render Production.
+
+| Comprobación | Resultado |
+| --- | --- |
+| `backend/tests/test_syncxml_pilot_tasks.py` | PASS; 17 pruebas |
+| Persistencia sin UPDATE y reparación idempotente de tarea | PASS; pruebas con Neon simulado |
+| `git diff --check` | PASS |
+
+Toni validó esta corrección en development y autorizó commit y push.
+
 ## Comprobaciones de reenvío de invitaciones
 
 | Comprobación | Resultado |
