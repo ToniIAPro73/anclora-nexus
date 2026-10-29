@@ -549,6 +549,7 @@ class AccessRequestService:
                 "identity_subject_id": prov_result.get("identity_subject_id"),
                 "identity_invitation_id": prov_result.get("identity_invitation_id"),
                 "membership_id": prov_result.get("membership_id"),
+                "identity_error": prov_result.get("identity_error"),
             },
         )
         record = self._rpc_record(
@@ -686,6 +687,7 @@ class AccessRequestService:
                 "identity_subject_id": prov_result.get("identity_subject_id"),
                 "identity_invitation_id": prov_result.get("identity_invitation_id"),
                 "membership_id": prov_result.get("membership_id"),
+                "identity_error": prov_result.get("identity_error"),
             },
         )
         updated = self._rpc_record(

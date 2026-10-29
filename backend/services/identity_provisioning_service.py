@@ -1,14 +1,87 @@
+import json
 import logging
+import re
 from typing import Any, Dict, Optional
 import httpx
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
+MAX_IDENTITY_ERROR_BODY_CHARS = 2048
+SENSITIVE_RESPONSE_KEY = re.compile(
+    r"(?:access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|"
+    r"secret|password|authorization|cookie|api[_-]?key|private[_-]?key|"
+    r"invite[_-]?(?:token|url)|activation[_-]?url|session|state)",
+    re.IGNORECASE,
+)
+SENSITIVE_RESPONSE_VALUE = re.compile(
+    r"(?i)(\b(?:authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|"
+    r"client[_-]?secret|secret|password|api[_-]?key|private[_-]?key|"
+    r"invite[_-]?(?:token|url)|activation[_-]?url|session|state)\b\s*[\"']?\s*[:=]\s*[\"']?)"
+    r"([^\"'\s,;&}]+)"
+)
+BEARER_CREDENTIAL = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*")
+JWT_CREDENTIAL = re.compile(r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?![A-Za-z0-9_-])")
+SENSITIVE_QUERY_VALUE = re.compile(r"(?i)([?&](?:token|code|state|session)=)[^&\s]+")
+CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]+")
+EMAIL_ADDRESS = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+
+
+def _redact_response_text(value: str) -> str:
+    """Redact credential-like values and normalize text before logging/persistence."""
+    value = BEARER_CREDENTIAL.sub("Bearer [REDACTED]", value)
+    value = JWT_CREDENTIAL.sub("[REDACTED_JWT]", value)
+    value = SENSITIVE_QUERY_VALUE.sub(r"\1[REDACTED]", value)
+    value = SENSITIVE_RESPONSE_VALUE.sub(r"\1[REDACTED]", value)
+    value = EMAIL_ADDRESS.sub("[REDACTED_EMAIL]", value)
+    return CONTROL_CHARACTERS.sub(" ", value).strip()
+
+
+def _redact_response_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if SENSITIVE_RESPONSE_KEY.search(str(key)) else _redact_response_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_response_value(item) for item in value]
+    if isinstance(value, str):
+        return _redact_response_text(value)
+    return value
+
+
+def _safe_identity_response(response: httpx.Response) -> Dict[str, str]:
+    """Return a bounded, credential-redacted representation of an Identity error body."""
+    content_type = response.headers.get("content-type", "").split(";", 1)[0][:100]
+    try:
+        payload = response.json()
+    except (ValueError, json.JSONDecodeError):
+        body = _redact_response_text(response.text)
+    else:
+        body = json.dumps(
+            _redact_response_value(payload),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+
+    if len(body) > MAX_IDENTITY_ERROR_BODY_CHARS:
+        body = body[:MAX_IDENTITY_ERROR_BODY_CHARS] + "…[truncated]"
+    return {"content_type": content_type or "unknown", "body": body or "<empty>"}
 
 
 class IdentityProvisioningError(Exception):
-    """Raised when an interaction with Anclora Identity fails."""
-    pass
+    """Raised when Anclora Identity returns a non-success HTTP response."""
+
+    def __init__(self, operation: str, status_code: int, response: Dict[str, str]):
+        self.operation = operation
+        self.status_code = status_code
+        self.response = response
+        super().__init__(f"{operation} failed HTTP {status_code}: {response['body']}")
+
+    def diagnostic(self) -> Dict[str, Any]:
+        return {
+            "http_status": self.status_code,
+            "response": self.response,
+        }
 
 
 class IdentityProvisioningService:
@@ -70,7 +143,9 @@ class IdentityProvisioningService:
                     return data.get("user")
                 return None
             raise IdentityProvisioningError(
-                f"Identity lookup failed HTTP {resp.status_code}: {resp.text}"
+                "Identity lookup",
+                resp.status_code,
+                _safe_identity_response(resp),
             )
 
     async def create_invitation(
@@ -99,7 +174,9 @@ class IdentityProvisioningService:
             if resp.status_code in (200, 201):
                 return resp.json()
             raise IdentityProvisioningError(
-                f"Create invitation failed HTTP {resp.status_code}: {resp.text}"
+                "Create invitation",
+                resp.status_code,
+                _safe_identity_response(resp),
             )
 
     async def grant_membership(
@@ -124,7 +201,9 @@ class IdentityProvisioningService:
             if resp.status_code in (200, 201):
                 return resp.json()
             raise IdentityProvisioningError(
-                f"Grant membership failed HTTP {resp.status_code}: {resp.text}"
+                "Grant membership",
+                resp.status_code,
+                _safe_identity_response(resp),
             )
 
     async def provision_approved_request(
@@ -202,13 +281,25 @@ class IdentityProvisioningService:
                 }
         except Exception as e:
             error_type = type(e).__name__
+            identity_error = e.diagnostic() if isinstance(e, IdentityProvisioningError) else None
+            provisioning_error = (
+                f"Identity {e.operation} failed HTTP {e.status_code}: {e.response['body']}"
+                if isinstance(e, IdentityProvisioningError)
+                else f"Identity provisioning failed ({error_type})"
+            )
             logger.error(
-                "Identity provisioning failed",
-                extra={"request_id": request.get("id"), "error_type": error_type},
+                "Identity provisioning failed: %s",
+                provisioning_error,
+                extra={
+                    "request_id": request.get("id"),
+                    "error_type": error_type,
+                    "identity_http_status": identity_error.get("http_status") if identity_error else None,
+                },
             )
             return {
                 "provisioning_status": "failed",
-                "provisioning_error": f"Identity provisioning failed ({error_type})",
+                "provisioning_error": provisioning_error,
+                "identity_error": identity_error,
                 "provisioning_case": "ERROR",
                 "identity_subject_id": None,
                 "identity_invitation_id": None,
