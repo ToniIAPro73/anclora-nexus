@@ -170,7 +170,7 @@ QA_ACCESS_REQUEST_IDENTITY=tonipmi.test@gmail.com (requester only; not a Nexus r
 QA_ACCESS_REQUEST_NAMESPACES=Both product-specific QA intake settings may target the verified shared Nexus QA organization; intake credentials and server-owned product markers remain separate
 QA_ACCESS_REQUEST_CREDENTIALS=GUESTHUB_QA_WEBHOOK_SECRET and DATA_LAB_QA_WEBHOOK_SECRET, separate from operational webhook credentials; QA applicant email allowlists are configured independently
 QA_REVIEWER_IDENTITY=qa.nexus@anclora.local; verified active Identity anclora-nexus membership and active Nexus owner membership in the isolated QA organization
-QA_ACCESS_REQUEST_STATUS=existing organization Nexus Production QA verified (scope=isolated-auth-qa; one active reviewer; zero access requests); provider-side QA secrets and frontend environment configuration remain pending
+QA_ACCESS_REQUEST_STATUS=existing Nexus Production QA organization verified (scope=isolated-auth-qa; active reviewer qa.nexus@anclora.local); separate GuestHub/Data Lab QA variables are configured on Render Production and Vercel Development; Render deploy f810466 is live; access_requests SELECT/INSERT grants for service_role applied on Neon Production via migration 003; GuestHub QA request 1f46819b-8382-4f56-99a9-dd2c0d84987d is pending; Data Lab request and UI review remain pending
 
 For dedicated human QA: Use designated production test identity. Never use Toni's personal account or operational admins as QA accounts. Never delete test account after testing.
 
