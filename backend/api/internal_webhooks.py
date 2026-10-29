@@ -178,7 +178,13 @@ def _upsert_intake_access_request(
     if metadata:
         record["metadata"] = metadata
     if extra:
-        record.update(extra)
+        normalized_extra = dict(extra)
+        # Intake v1 calls this organization_name/company_name depending on the
+        # producer; access_requests stores the canonical field as `company`.
+        company_name = normalized_extra.pop("company_name", None)
+        if company_name is not None:
+            normalized_extra.setdefault("company", company_name)
+        record.update(normalized_extra)
 
     result = neon_service.client.table("access_requests").insert(record).execute()
     if not result.data:

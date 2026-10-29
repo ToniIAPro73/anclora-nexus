@@ -20,6 +20,7 @@ from httpx import ASGITransport, AsyncClient
 from route_helpers import flatten_routes
 
 from backend.api.deps import get_current_user, get_org_id, require_access_request_reviewer
+from backend.api.internal_webhooks import _upsert_intake_access_request
 from backend.api.routes.syncxml_pilot import router as syncxml_pilot_router
 from backend.services.syncxml_pilot_service import SyncXmlPilotPayload, syncxml_pilot_service
 
@@ -556,6 +557,38 @@ async def test_data_lab_webhook_accepts_dedicated_service_key(webhook_app):
         idempotency_key="datalab-request-123",
         extra={"intended_use": "QA only", "company_name": "QA workspace"},
     )
+
+
+def test_access_request_intake_maps_company_name_to_company_column():
+    table = MagicMock()
+    table.select.return_value = table
+    table.eq.return_value = table
+    table.limit.return_value = table
+    table.insert.return_value = table
+    table.execute.side_effect = [
+        MagicMock(data=[]),
+        MagicMock(data=[{"id": "request-123"}]),
+    ]
+
+    with patch("backend.api.internal_webhooks.neon_service.client") as mock_client:
+        mock_client.table.return_value = table
+        result = _upsert_intake_access_request(
+            email="qa@example.test",
+            full_name="QA Applicant",
+            product="data_lab",
+            source="data_lab_app",
+            request_type="access_request",
+            idempotency_key="request-123",
+            org_id=ORG_ID,
+            extra={"company_name": "QA workspace", "intended_use": "QA only"},
+        )
+
+    assert result == {"id": "request-123", "idempotent": False}
+    table.insert.assert_called_once()
+    inserted_record = table.insert.call_args.args[0]
+    assert inserted_record["company"] == "QA workspace"
+    assert inserted_record["intended_use"] == "QA only"
+    assert "company_name" not in inserted_record
 
 
 @pytest.mark.anyio
