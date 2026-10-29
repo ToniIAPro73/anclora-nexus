@@ -39,6 +39,7 @@ export type AccessRequestProvisioningStatus =
   | "provisioned"
   | "failed"
   | "invite_ready"
+  | "pending"
   | "provisioning_pending"
   | "not_applicable";
 export type AccessRequestEmailStatus =

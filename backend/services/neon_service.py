@@ -87,6 +87,23 @@ class NeonService:
             hashlib.sha256
         ).hexdigest()
 
+    def prepare_access_request_audit_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Build a signed event for the scoped access-request database functions."""
+        event = {
+            "org_id": str(data.get("org_id") or self.fixed_org_id),
+            "actor_type": str(data.get("actor_type") or "system"),
+            "actor_id": str(data.get("actor_id") or "system"),
+            "action": str(data.get("action") or ""),
+            "resource_type": "access_request",
+            "resource_id": str(data.get("resource_id") or ""),
+            "details": data.get("details") or {},
+        }
+        return {
+            **event,
+            "signature": self._generate_signature(event),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
     async def insert_lead(self, data: Dict[str, Any]) -> Dict[str, Any]:
         response = self.client.table("leads").insert(data).execute()
         return response.data[0]

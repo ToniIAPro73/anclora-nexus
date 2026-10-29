@@ -115,12 +115,76 @@ class MockNeonClient:
     def __init__(self, rows, audit_rows=None):
         self.rows = rows
         self.audit_rows = audit_rows or []
+        self.rpc_calls = []
 
     def table(self, name):
         assert name in {"access_requests", "audit_log"}
         if name == "audit_log":
             return MockAccessRequestQuery(self.audit_rows)
         return MockAccessRequestQuery(self.rows)
+
+    def rpc(self, function_name, params=None):
+        return MockAccessRequestRpcQuery(self, function_name, params or {})
+
+
+class MockAccessRequestRpcQuery:
+    def __init__(self, client, function_name, params):
+        self.client = client
+        self.function_name = function_name
+        self.params = params
+
+    def execute(self):
+        self.client.rpc_calls.append((self.function_name, self.params))
+        params = self.params
+        if self.function_name == "nexus_review_access_request":
+            row = next((row for row in self.client.rows if row["id"] == params["p_request_id"] and row["org_id"] == params["p_org_id"] and row["status"] == "pending"), None)
+            if row is None:
+                return MockResult([])
+            row.update({
+                "status": params["p_decision_status"],
+                "reviewed_at": params["p_reviewed_at"],
+                "reviewed_by": params["p_reviewer_id"],
+                "admin_notes": params["p_admin_notes"],
+                "rejection_reason": params["p_rejection_reason"],
+                "provisioning_status": "pending" if params["p_decision_status"] == "approved" else "not_applicable",
+                "updated_at": params["p_reviewed_at"],
+            })
+            self.client.audit_rows.append(params["p_audit_event"])
+            return MockResult([row])
+        if self.function_name == "nexus_finalize_access_request_provisioning":
+            row = next((row for row in self.client.rows if row["id"] == params["p_request_id"] and row["org_id"] == params["p_org_id"] and row["status"] == "approved" and row.get("provisioning_status") == "pending"), None)
+            if row is None:
+                return MockResult([])
+            row.update({
+                "provisioning_status": params["p_provisioning_status"],
+                "provisioning_error": params["p_provisioning_error"],
+                "identity_subject_id": params["p_identity_subject_id"],
+                "identity_invitation_id": params["p_identity_invitation_id"],
+                "membership_id": params["p_membership_id"],
+                "invite_token": params["p_invite_token"],
+                "invite_expires_at": params["p_invite_expires_at"],
+                "updated_at": params["p_updated_at"],
+            })
+            self.client.audit_rows.append(params["p_audit_event"])
+            return MockResult([row])
+        if self.function_name == "nexus_begin_access_request_provisioning_retry":
+            row = next((row for row in self.client.rows if row["id"] == params["p_request_id"] and row["org_id"] == params["p_org_id"] and row["status"] == "approved" and row.get("provisioning_status") in {"failed", "pending"} and not any(row.get(field) for field in ("identity_subject_id", "identity_invitation_id", "membership_id"))), None)
+            if row is None:
+                return MockResult([])
+            row.update({"provisioning_status": "pending", "updated_at": params["p_started_at"]})
+            self.client.audit_rows.append(params["p_audit_event"])
+            return MockResult([row])
+        if self.function_name == "nexus_log_access_request_audit_event":
+            self.client.audit_rows.append(params["p_audit_event"])
+            return MockResult([params["p_audit_event"]])
+        if self.function_name == "nexus_list_access_request_audit_events":
+            result = [event for event in self.client.audit_rows if event.get("org_id") == params["p_org_id"] and (params.get("p_request_id") is None or event.get("resource_id") == params["p_request_id"])]
+            if params.get("p_actions"):
+                result = [event for event in result if event.get("action") in params["p_actions"]]
+            if params.get("p_since"):
+                result = [event for event in result if str(event.get("timestamp") or "") >= params["p_since"]]
+            return MockResult(result[:params.get("p_limit", len(result))])
+        raise AssertionError(f"Unexpected RPC: {self.function_name}")
 
 
 class MockEmailService:
@@ -141,6 +205,20 @@ class MockEmailService:
 class MockAuditService:
     def __init__(self):
         self.events = []
+
+    def prepare_event(self, **kwargs):
+        self.events.append(kwargs)
+        return {
+            "org_id": kwargs["org_id"],
+            "actor_type": kwargs["actor_type"],
+            "actor_id": kwargs["actor_id"] or "system",
+            "action": kwargs["event_type"],
+            "resource_type": "access_request",
+            "resource_id": kwargs["access_request_id"],
+            "details": kwargs["metadata"] or {},
+            "signature": "test-signature",
+            "timestamp": "2026-10-29T00:00:00+00:00",
+        }
 
     async def log_event(self, **kwargs):
         self.events.append(kwargs)
@@ -340,6 +418,77 @@ async def test_approve_sends_email_after_state_update(monkeypatch, service):
 
 
 @pytest.mark.anyio
+async def test_approval_is_persisted_and_audited_before_identity_provisioning(monkeypatch, service):
+    rows = [access_request_record("request-1")]
+    client = MockNeonClient(rows)
+    audit_service = MockAuditService()
+    provision = AsyncMock(return_value={
+        "provisioning_status": "provisioned",
+        "provisioning_case": "CASO_B",
+        "membership_id": "membership-1",
+    })
+    monkeypatch.setattr("backend.services.access_request_service.neon_service.client", client)
+    monkeypatch.setattr("backend.services.access_request_service.access_request_audit_service", audit_service)
+
+    async def assert_durable_decision(*, request, reviewer_id):
+        assert rows[0]["status"] == "approved"
+        assert rows[0]["provisioning_status"] == "pending"
+        assert client.audit_rows[0]["action"] == "access_request.approved"
+        assert client.audit_rows[0]["actor_id"] == reviewer_id
+        return await provision(request=request, reviewer_id=reviewer_id)
+
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
+        assert_durable_decision,
+    )
+
+    result = await service.approve_request(
+        ORG_ID,
+        "request-1",
+        AccessRequestReviewDecision(),
+        reviewer_id=REVIEWER_ID,
+    )
+
+    assert result["membership_id"] == "membership-1"
+    assert [name for name, _ in client.rpc_calls] == [
+        "nexus_review_access_request",
+        "nexus_finalize_access_request_provisioning",
+    ]
+    provision.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_failed_decision_persistence_never_provisions_identity(monkeypatch, service):
+    class FailedDecisionClient(MockNeonClient):
+        def rpc(self, function_name, params=None):
+            if function_name == "nexus_review_access_request":
+                return type("FailedQuery", (), {"execute": lambda _self: MockResult([])})()
+            return super().rpc(function_name, params)
+
+    rows = [access_request_record("request-1")]
+    provision = AsyncMock()
+    monkeypatch.setattr(
+        "backend.services.access_request_service.neon_service.client",
+        FailedDecisionClient(rows),
+    )
+    monkeypatch.setattr(
+        "backend.services.access_request_service.identity_provisioning_service.provision_approved_request",
+        provision,
+    )
+
+    with pytest.raises(AccessRequestInvalidTransitionError):
+        await service.approve_request(
+            ORG_ID,
+            "request-1",
+            AccessRequestReviewDecision(),
+            reviewer_id=REVIEWER_ID,
+        )
+
+    provision.assert_not_awaited()
+    assert rows[0]["status"] == "pending"
+
+
+@pytest.mark.anyio
 async def test_approve_failed_provisioning_does_not_create_local_token(monkeypatch, service):
     rows = [access_request_record("request-1")]
     monkeypatch.setattr(
@@ -534,9 +683,9 @@ async def test_email_failure_does_not_revert_decision_and_logs_failure(monkeypat
 
 
 @pytest.mark.anyio
-async def test_audit_failure_does_not_break_approval(monkeypatch, service):
+async def test_audit_event_preparation_failure_prevents_approval(monkeypatch, service):
     class FailingAuditService:
-        async def log_event(self, **_kwargs):
+        def prepare_event(self, **_kwargs):
             raise RuntimeError("audit unavailable")
 
     rows = [access_request_record("request-1")]
@@ -554,15 +703,16 @@ async def test_audit_failure_does_not_break_approval(monkeypatch, service):
         FailingAuditService(),
     )
 
-    result = await service.approve_request(
-        ORG_ID,
-        "request-1",
-        AccessRequestReviewDecision(),
-        reviewer_id=REVIEWER_ID,
-    )
+    with pytest.raises(RuntimeError, match="audit unavailable"):
+        await service.approve_request(
+            ORG_ID,
+            "request-1",
+            AccessRequestReviewDecision(),
+            reviewer_id=REVIEWER_ID,
+        )
 
-    assert result["status"] == "approved"
-    assert result["decision_email"]["status"] == "sent"
+    assert rows[0]["status"] == "pending"
+    assert email_service.sent_records == []
 
 
 def test_reject_decision_requires_rejection_reason():

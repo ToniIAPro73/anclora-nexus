@@ -37,7 +37,7 @@ class AccessRequestProvisioningStatus(str, Enum):
     PROVISIONED = "provisioned"
     FAILED = "failed"
     INVITE_READY = "invite_ready"
-    PROVISIONING_PENDING = "provisioning_pending"
+    PROVISIONING_PENDING = "pending"
     NOT_APPLICABLE = "not_applicable"
 
 class AccessRequestEmailStatus(str, Enum):

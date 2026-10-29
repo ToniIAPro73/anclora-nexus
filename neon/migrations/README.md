@@ -8,6 +8,7 @@ Neon is the sole application database provider. The application uses Neon Data A
 - `001_neon_data_api_access_security.sql`: configures database access and row-level security for the Data API.
 - `002_neon_identity_claims.sql`: aligns authorization policies with Anclora Identity JWT claims.
 - `003_access_requests_service_role_permissions.sql`: grants the backend `service_role` read and insert access to `access_requests`, which was added after the initial Data API grants.
+- `004_scoped_access_request_review_functions.sql`: provides scoped, atomic review and audit RPCs without granting direct request updates or audit-table access to `service_role`.
 
 Apply migrations only through the governed Neon production-backed workflow and verify the target branch before execution. Do not create a separate development database.
 

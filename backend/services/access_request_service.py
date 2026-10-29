@@ -182,15 +182,17 @@ class AccessRequestService:
             .execute()
         )
         rows = request_result.data or []
-        audit_result = (
-            neon_service.client.table("audit_log")
-            .select("timestamp,action,resource_id,details")
-            .eq("org_id", org_id)
-            .eq("resource_type", "access_request")
-            .order("timestamp", desc=True)
-            .limit(min(sample_limit * 4, 2000))
-            .execute()
-        )
+        audit_result = neon_service.client.rpc(
+            "nexus_list_access_request_audit_events",
+            {
+                "p_org_id": org_id,
+                "p_request_id": None,
+                "p_actions": None,
+                "p_since": None,
+                "p_limit": min(sample_limit * 4, 2000),
+                "p_descending": True,
+            },
+        ).execute()
         audit_events_by_request = self._group_audit_events(audit_result.data or [])
 
         now = datetime.now(timezone.utc)
@@ -318,15 +320,17 @@ class AccessRequestService:
         # 2. Fetch recent SLA audit events for deduplication
         # We look back dedupe_hours + some buffer to be safe
         lookback_time = (now - timedelta(hours=dedupe_hours + 1)).isoformat()
-        audit_result = (
-            neon_service.client.table("audit_log")
-            .select("timestamp,action,resource_id,details")
-            .eq("org_id", org_id)
-            .eq("resource_type", "access_request")
-            .in_("action", list(SLA_AUDIT_ACTIONS))
-            .gte("timestamp", lookback_time)
-            .execute()
-        )
+        audit_result = neon_service.client.rpc(
+            "nexus_list_access_request_audit_events",
+            {
+                "p_org_id": org_id,
+                "p_request_id": None,
+                "p_actions": list(SLA_AUDIT_ACTIONS),
+                "p_since": lookback_time,
+                "p_limit": 2000,
+                "p_descending": True,
+            },
+        ).execute()
         recent_sla_events = audit_result.data or []
         audit_events_by_request = self._group_audit_events(recent_sla_events)
 
@@ -374,15 +378,17 @@ class AccessRequestService:
             if status_value in TERMINAL_ACCESS_REQUEST_STATUSES or (status_value == AccessRequestStatus.APPROVED.value):
                 # We need more info for these. Let's fetch audit events for THIS request.
                 # Optimization: in a real scan we'd batch this.
-                request_audit = (
-                    neon_service.client.table("audit_log")
-                    .select("timestamp,action,resource_id,details")
-                    .eq("org_id", org_id)
-                    .eq("resource_type", "access_request")
-                    .eq("resource_id", request_id)
-                    .order("timestamp", desc=True)
-                    .execute()
-                )
+                request_audit = neon_service.client.rpc(
+                    "nexus_list_access_request_audit_events",
+                    {
+                        "p_org_id": org_id,
+                        "p_request_id": request_id,
+                        "p_actions": None,
+                        "p_since": None,
+                        "p_limit": 2000,
+                        "p_descending": True,
+                    },
+                ).execute()
                 lifecycle = self._build_lifecycle(row, request_audit.data or [])
                 
                 if status_value in TERMINAL_ACCESS_REQUEST_STATUSES:
@@ -480,9 +486,34 @@ class AccessRequestService:
 
         pending_record = await self._ensure_pending(org_id, request_id)
 
+        # Commit the decision and its audit event before Identity can grant access.
+        now = self._now()
+        decision_event = access_request_audit_service.prepare_event(
+            org_id=org_id,
+            access_request_id=request_id,
+            event_type="access_request.approved",
+            actor_id=reviewer_id,
+            actor_type="user",
+            metadata={"admin_notes": decision.admin_notes},
+        )
+        record = self._rpc_record(
+            "nexus_review_access_request",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_decision_status": AccessRequestStatus.APPROVED.value,
+                "p_reviewer_id": reviewer_id,
+                "p_admin_notes": decision.admin_notes,
+                "p_rejection_reason": None,
+                "p_reviewed_at": now,
+                "p_audit_event": decision_event,
+            },
+            "Access request is no longer pending",
+        )
+
         # Execute canonical provisioning via Anclora Identity
         prov_result = await identity_provisioning_service.provision_approved_request(
-            request=pending_record,
+            request=record,
             reviewer_id=reviewer_id,
         )
 
@@ -503,35 +534,7 @@ class AccessRequestService:
         )
         invite_created = bool(prov_result.get("identity_invitation_id"))
         now = self._now()
-        update_payload: Dict[str, Any] = {
-            "status": AccessRequestStatus.APPROVED.value,
-            "reviewed_at": now,
-            "reviewed_by": reviewer_id,
-            "admin_notes": decision.admin_notes,
-            "invite_token": invite_token,
-            "invite_expires_at": invite_expires_at,
-            "provisioning_status": provisioning_status,
-            "updated_at": now,
-        }
-        if prov_result.get("identity_subject_id"):
-            update_payload["identity_subject_id"] = prov_result["identity_subject_id"]
-        if prov_result.get("identity_invitation_id"):
-            update_payload["identity_invitation_id"] = prov_result["identity_invitation_id"]
-        if prov_result.get("membership_id"):
-            update_payload["membership_id"] = prov_result["membership_id"]
-        if prov_result.get("provisioning_error"):
-            update_payload["provisioning_error"] = prov_result["provisioning_error"]
-
-        record = await self._update_pending_request(org_id, request_id, update_payload)
-        await self._log_audit_event(
-            org_id=org_id,
-            access_request_id=request_id,
-            event_type="access_request.approved",
-            actor_id=reviewer_id,
-            actor_type="user",
-            metadata={"admin_notes": decision.admin_notes},
-        )
-        await self._log_audit_event(
+        provisioning_event = access_request_audit_service.prepare_event(
             org_id=org_id,
             access_request_id=request_id,
             event_type="access_request.provisioning_intent_prepared",
@@ -541,12 +544,29 @@ class AccessRequestService:
                 "product": record.get("product"),
                 "invite_created": invite_created,
                 "invite_expires_at": invite_expires_at,
-                "provisioning_status": update_payload["provisioning_status"],
+                "provisioning_status": provisioning_status,
                 "provisioning_case": prov_result.get("provisioning_case"),
                 "identity_subject_id": prov_result.get("identity_subject_id"),
                 "identity_invitation_id": prov_result.get("identity_invitation_id"),
                 "membership_id": prov_result.get("membership_id"),
             },
+        )
+        record = self._rpc_record(
+            "nexus_finalize_access_request_provisioning",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_provisioning_status": provisioning_status,
+                "p_provisioning_error": prov_result.get("provisioning_error"),
+                "p_identity_subject_id": prov_result.get("identity_subject_id"),
+                "p_identity_invitation_id": prov_result.get("identity_invitation_id"),
+                "p_membership_id": prov_result.get("membership_id"),
+                "p_invite_token": invite_token,
+                "p_invite_expires_at": invite_expires_at,
+                "p_updated_at": now,
+                "p_audit_event": provisioning_event,
+            },
+            "Approved request is no longer awaiting provisioning",
         )
         record["decision_email"] = await self._send_decision_email(record)
         record["lifecycle"] = self._build_lifecycle(record, [], record["decision_email"]).model_dump(mode="json")
@@ -565,16 +585,7 @@ class AccessRequestService:
 
         await self._ensure_pending(org_id, request_id)
         now = self._now()
-        update_payload = {
-            "status": AccessRequestStatus.REJECTED.value,
-            "reviewed_at": now,
-            "reviewed_by": reviewer_id,
-            "admin_notes": decision.admin_notes,
-            "rejection_reason": decision.rejection_reason,
-            "updated_at": now,
-        }
-        record = await self._update_pending_request(org_id, request_id, update_payload)
-        await self._log_audit_event(
+        decision_event = access_request_audit_service.prepare_event(
             org_id=org_id,
             access_request_id=request_id,
             event_type="access_request.rejected",
@@ -584,6 +595,20 @@ class AccessRequestService:
                 "admin_notes": decision.admin_notes,
                 "rejection_reason": decision.rejection_reason,
             },
+        )
+        record = self._rpc_record(
+            "nexus_review_access_request",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_decision_status": AccessRequestStatus.REJECTED.value,
+                "p_reviewer_id": reviewer_id,
+                "p_admin_notes": decision.admin_notes,
+                "p_rejection_reason": decision.rejection_reason,
+                "p_reviewed_at": now,
+                "p_audit_event": decision_event,
+            },
+            "Access request is no longer pending",
         )
         record["decision_email"] = await self._send_decision_email(record)
         record["lifecycle"] = self._build_lifecycle(record, [], record["decision_email"]).model_dump(mode="json")
@@ -621,42 +646,64 @@ class AccessRequestService:
                 f"Access request {request_id} is not eligible for provisioning retry"
             )
 
+        now = self._now()
+        retry_started_event = access_request_audit_service.prepare_event(
+            org_id=org_id,
+            access_request_id=request_id,
+            event_type="access_request.provisioning_retry_started",
+            actor_id=reviewer_id,
+            actor_type="user",
+            metadata={"provisioning_status": AccessRequestProvisioningStatus.PROVISIONING_PENDING.value},
+        )
+        record = self._rpc_record(
+            "nexus_begin_access_request_provisioning_retry",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_started_at": now,
+                "p_audit_event": retry_started_event,
+            },
+            "Access request is not eligible for provisioning retry",
+        )
         prov_result = await identity_provisioning_service.provision_approved_request(
             request=record,
             reviewer_id=reviewer_id,
         )
-        now = self._now()
-        update_payload: Dict[str, Any] = {
-            "provisioning_status": prov_result.get(
-                "provisioning_status",
-                AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
-            ),
-            "provisioning_error": prov_result.get("provisioning_error"),
-            "identity_subject_id": prov_result.get("identity_subject_id"),
-            "identity_invitation_id": prov_result.get("identity_invitation_id"),
-            "membership_id": prov_result.get("membership_id"),
-            "invite_token": None,
-            "invite_expires_at": None,
-            "updated_at": now,
-        }
-        updated = await self._update_approved_request(
-            org_id=org_id,
-            request_id=request_id,
-            update_payload=update_payload,
+        provisioning_status = prov_result.get(
+            "provisioning_status",
+            AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
         )
-        await self._log_audit_event(
+        now = self._now()
+        retry_event = access_request_audit_service.prepare_event(
             org_id=org_id,
             access_request_id=request_id,
             event_type="access_request.provisioning_retry",
             actor_id=reviewer_id,
             actor_type="user",
             metadata={
-                "provisioning_status": update_payload["provisioning_status"],
+                "provisioning_status": provisioning_status,
                 "provisioning_case": prov_result.get("provisioning_case"),
                 "identity_subject_id": prov_result.get("identity_subject_id"),
                 "identity_invitation_id": prov_result.get("identity_invitation_id"),
                 "membership_id": prov_result.get("membership_id"),
             },
+        )
+        updated = self._rpc_record(
+            "nexus_finalize_access_request_provisioning",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_provisioning_status": provisioning_status,
+                "p_provisioning_error": prov_result.get("provisioning_error"),
+                "p_identity_subject_id": prov_result.get("identity_subject_id"),
+                "p_identity_invitation_id": prov_result.get("identity_invitation_id"),
+                "p_membership_id": prov_result.get("membership_id"),
+                "p_invite_token": None,
+                "p_invite_expires_at": None,
+                "p_updated_at": now,
+                "p_audit_event": retry_event,
+            },
+            "Approved request is no longer awaiting provisioning",
         )
         updated["lifecycle"] = self._build_lifecycle(updated, []).model_dump(mode="json")
         return updated
@@ -736,15 +783,17 @@ class AccessRequestService:
         request_id: str,
     ) -> list[Dict[str, Any]]:
         await self.get_request(org_id, request_id)
-        result = (
-            neon_service.client.table("audit_log")
-            .select("id,timestamp,actor_type,actor_id,action,resource_type,resource_id,details")
-            .eq("org_id", org_id)
-            .eq("resource_type", "access_request")
-            .eq("resource_id", request_id)
-            .order("timestamp", desc=False)
-            .execute()
-        )
+        result = neon_service.client.rpc(
+            "nexus_list_access_request_audit_events",
+            {
+                "p_org_id": org_id,
+                "p_request_id": request_id,
+                "p_actions": None,
+                "p_since": None,
+                "p_limit": 2000,
+                "p_descending": False,
+            },
+        ).execute()
         return result.data or []
 
     async def _ensure_pending(self, org_id: str, request_id: str) -> Dict[str, Any]:
@@ -760,45 +809,16 @@ class AccessRequestService:
             )
         return record
 
-    async def _update_pending_request(
+    def _rpc_record(
         self,
-        org_id: str,
-        request_id: str,
-        update_payload: Dict[str, Any],
+        function_name: str,
+        params: Dict[str, Any],
+        conflict_message: str,
     ) -> Dict[str, Any]:
-        result = (
-            neon_service.client.table("access_requests")
-            .update(update_payload)
-            .eq("org_id", org_id)
-            .eq("id", request_id)
-            .eq("status", AccessRequestStatus.PENDING.value)
-            .execute()
-        )
+        result = neon_service.client.rpc(function_name, params).execute()
         if not result.data:
-            raise AccessRequestInvalidTransitionError(
-                f"Access request {request_id} is no longer pending"
-            )
-        return result.data[0]
-
-    async def _update_approved_request(
-        self,
-        org_id: str,
-        request_id: str,
-        update_payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        result = (
-            neon_service.client.table("access_requests")
-            .update(update_payload)
-            .eq("org_id", org_id)
-            .eq("id", request_id)
-            .eq("status", AccessRequestStatus.APPROVED.value)
-            .execute()
-        )
-        if not result.data:
-            raise AccessRequestInvalidTransitionError(
-                f"Access request {request_id} is no longer approved"
-            )
-        return result.data[0]
+            raise AccessRequestInvalidTransitionError(conflict_message)
+        return result.data[0] if isinstance(result.data, list) else result.data
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
