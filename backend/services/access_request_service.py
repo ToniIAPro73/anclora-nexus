@@ -851,6 +851,17 @@ class AccessRequestService:
                 AccessRequestStatus.REJECTED.value,
             }
             and email_status != AccessRequestEmailStatus.SENT,
+            provisioning_retry_available=(
+                status == AccessRequestStatus.APPROVED.value
+                and not any(record.get(field) for field in (
+                    "identity_subject_id", "identity_invitation_id", "membership_id"
+                ))
+                and record.get("provisioning_status") in {
+                    None,
+                    AccessRequestProvisioningStatus.FAILED.value,
+                    AccessRequestProvisioningStatus.PROVISIONING_PENDING.value,
+                }
+            ),
             last_event_at=self._derive_last_event_at(record, audit_events),
         )
 

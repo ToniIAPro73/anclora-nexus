@@ -115,6 +115,7 @@ export interface AccessRequestLifecycle {
   reviewed_at?: string | null;
   invite_expires_at?: string | null;
   retry_available: boolean;
+  provisioning_retry_available: boolean;
   last_event_at?: string | null;
 }
 
@@ -298,6 +299,14 @@ export async function retryAccessRequestDecisionEmail(
     {
       method: "POST",
     },
+  );
+  return readJsonOrThrow(response);
+}
+
+export async function retryAccessRequestProvisioning(id: string): Promise<AccessRequest> {
+  const response = await authFetch(
+    `/api/access-requests/${encodeURIComponent(id)}/provision/retry`,
+    { method: "POST" },
   );
   return readJsonOrThrow(response);
 }

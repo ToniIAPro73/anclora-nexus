@@ -17,9 +17,11 @@ interface AccessRequestDetailPanelProps {
   lifecycleLoading: boolean
   lifecycleError: string | null
   retryingEmail: boolean
+  retryingProvisioning: boolean
   onApprove: () => void
   onReject: () => void
   onRetryDecisionEmail: () => void
+  onRetryProvisioning: () => void
   t: Translate
 }
 
@@ -60,9 +62,11 @@ export function AccessRequestDetailPanel({
   lifecycleLoading,
   lifecycleError,
   retryingEmail,
+  retryingProvisioning,
   onApprove,
   onReject,
   onRetryDecisionEmail,
+  onRetryProvisioning,
   t,
 }: AccessRequestDetailPanelProps) {
   if (!request) {
@@ -152,7 +156,9 @@ export function AccessRequestDetailPanel({
         loading={lifecycleLoading}
         error={lifecycleError}
         retrying={retryingEmail}
+        retryingProvisioning={retryingProvisioning}
         onRetry={onRetryDecisionEmail}
+        onRetryProvisioning={onRetryProvisioning}
         t={t}
       />
 

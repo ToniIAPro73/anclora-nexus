@@ -11,7 +11,9 @@ interface AccessRequestLifecyclePanelProps {
   loading: boolean
   error: string | null
   retrying: boolean
+  retryingProvisioning: boolean
   onRetry: () => void
+  onRetryProvisioning: () => void
   t: Translate
 }
 
@@ -51,7 +53,9 @@ export function AccessRequestLifecyclePanel({
   loading,
   error,
   retrying,
+  retryingProvisioning,
   onRetry,
+  onRetryProvisioning,
   t,
 }: AccessRequestLifecyclePanelProps) {
   return (
@@ -61,12 +65,20 @@ export function AccessRequestLifecyclePanel({
           <h3 className="section-title text-base">{t('accessRequestsLifecycleTitle')}</h3>
           <p className="section-subtitle mt-1">{t('accessRequestsLifecycleSubtitle')}</p>
         </div>
-        {lifecycle?.retry_available ? (
-          <button type="button" className="btn-action h-10 px-4" onClick={onRetry} disabled={retrying}>
-            <RefreshCw className={`h-4 w-4 ${retrying ? 'animate-spin' : ''}`} />
-            {retrying ? t('accessRequestsDecisionEmailRetrying') : t('accessRequestsDecisionEmailRetry')}
-          </button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {lifecycle?.provisioning_retry_available ? (
+            <button type="button" className="btn-action h-10 px-4" onClick={onRetryProvisioning} disabled={retryingProvisioning}>
+              <RefreshCw className={`h-4 w-4 ${retryingProvisioning ? 'animate-spin' : ''}`} />
+              {retryingProvisioning ? t('accessRequestsProvisioningRetrying') : t('accessRequestsProvisioningRetry')}
+            </button>
+          ) : null}
+          {lifecycle?.retry_available ? (
+            <button type="button" className="btn-action h-10 px-4" onClick={onRetry} disabled={retrying}>
+              <RefreshCw className={`h-4 w-4 ${retrying ? 'animate-spin' : ''}`} />
+              {retrying ? t('accessRequestsDecisionEmailRetrying') : t('accessRequestsDecisionEmailRetry')}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {loading ? (
@@ -96,12 +108,10 @@ export function AccessRequestLifecyclePanel({
             <Field label={t('accessRequestsReviewedBy')} value={lifecycle.reviewed_by || '-'} />
             <Field label={t('accessRequestsReviewedAt')} value={formatDate(lifecycle.reviewed_at)} />
             <Field label={t('accessRequestsLifecycleInviteExpires')} value={formatDate(lifecycle.invite_expires_at)} />
-            <Field
-              label={t('accessRequestsLifecycleRetryAvailable')}
-              value={lifecycle.retry_available ? t('accessRequestsYes') : t('accessRequestsNo')}
-            />
+            <Field label={t('accessRequestsLifecycleEmailRetryAvailable')} value={lifecycle.retry_available ? t('accessRequestsYes') : t('accessRequestsNo')} />
+            <Field label={t('accessRequestsLifecycleProvisioningRetryAvailable')} value={lifecycle.provisioning_retry_available ? t('accessRequestsYes') : t('accessRequestsNo')} />
           </div>
-          {!lifecycle.retry_available ? (
+          {!lifecycle.retry_available && !lifecycle.provisioning_retry_available ? (
             <p className="mt-3 text-xs text-soft-muted">{t('accessRequestsLifecycleRetryUnavailable')}</p>
           ) : null}
         </>

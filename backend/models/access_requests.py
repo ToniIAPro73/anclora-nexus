@@ -211,6 +211,7 @@ class AccessRequestLifecycleResponse(BaseModel):
     reviewed_at: Optional[str] = None
     invite_expires_at: Optional[str] = None
     retry_available: bool
+    provisioning_retry_available: bool = False
     last_event_at: Optional[str] = None
 
 class AccessRequestAttentionItem(BaseModel):

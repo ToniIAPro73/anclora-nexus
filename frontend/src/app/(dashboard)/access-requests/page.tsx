@@ -13,6 +13,7 @@ import {
   listAccessRequests,
   rejectAccessRequest,
   retryAccessRequestDecisionEmail,
+  retryAccessRequestProvisioning,
   type AccessRequest,
   type AccessRequestAuditEvent,
   type AccessRequestAnalyticsSummary,
@@ -46,6 +47,7 @@ export default function AccessRequestsPage() {
   const [lifecycleLoading, setLifecycleLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [retryingEmail, setRetryingEmail] = useState(false)
+  const [retryingProvisioning, setRetryingProvisioning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [auditError, setAuditError] = useState<string | null>(null)
@@ -264,6 +266,26 @@ export default function AccessRequestsPage() {
     }
   }
 
+  async function retryProvisioning() {
+    if (!selected) return
+    setRetryingProvisioning(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const payload = await retryAccessRequestProvisioning(selected.id)
+      setSelected(payload)
+      setSuccess(t('accessRequestsProvisioningRetrySaved'))
+      if (payload.lifecycle) setLifecycle(payload.lifecycle)
+      else await loadLifecycle(payload.id)
+      await Promise.all([loadAudit(payload.id), loadList(), loadAnalytics()])
+      setSelected(payload)
+    } catch (err) {
+      setError(formatApiError(err, 'accessRequestsProvisioningRetryError'))
+    } finally {
+      setRetryingProvisioning(false)
+    }
+  }
+
   return (
     <div className="min-h-full p-6">
       <div className="mx-auto flex max-w-screen-2xl flex-col gap-5">
@@ -393,9 +415,11 @@ export default function AccessRequestsPage() {
               lifecycleLoading={lifecycleLoading}
               lifecycleError={lifecycleError}
               retryingEmail={retryingEmail}
+              retryingProvisioning={retryingProvisioning}
               onApprove={() => openDecision('approve')}
               onReject={() => openDecision('reject')}
               onRetryDecisionEmail={() => void retryDecisionEmail()}
+              onRetryProvisioning={() => void retryProvisioning()}
               t={t}
             />
             <AccessRequestSlaPanel onSelectRequest={(id) => void openRequestById(id)} t={t} />

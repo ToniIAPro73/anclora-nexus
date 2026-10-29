@@ -139,3 +139,40 @@ async def test_pending_lifecycle_is_not_retryable(monkeypatch, service):
     assert lifecycle.email_status == "not_applicable"
     assert lifecycle.provisioning_status == "not_started"
     assert lifecycle.retry_available is False
+    assert lifecycle.provisioning_retry_available is False
+
+
+@pytest.mark.anyio
+async def test_failed_provisioning_can_retry_after_decision_email_was_sent(monkeypatch, service):
+    rows = [
+        {
+            **access_request_record("request-1", status="approved"),
+            "reviewed_by": REVIEWER_ID,
+            "provisioning_status": "failed",
+            "provisioning_error": "Identity provisioning failed (IdentityProvisioningError)",
+        }
+    ]
+    audit_rows = [
+        {
+            "id": "audit-email-sent",
+            "org_id": ORG_ID,
+            "timestamp": "2026-05-06T10:01:00+00:00",
+            "actor_type": "system",
+            "actor_id": "system",
+            "action": "access_request.email_sent",
+            "resource_type": "access_request",
+            "resource_id": "request-1",
+            "details": {"status": "approved"},
+        }
+    ]
+    monkeypatch.setattr(
+        "backend.services.access_request_service.neon_service.client",
+        MockNeonClient(rows, audit_rows=audit_rows),
+    )
+
+    lifecycle = await service.get_lifecycle(ORG_ID, "request-1")
+
+    assert lifecycle.email_status == "sent"
+    assert lifecycle.retry_available is False
+    assert lifecycle.provisioning_status == "failed"
+    assert lifecycle.provisioning_retry_available is True
