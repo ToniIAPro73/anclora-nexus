@@ -7,6 +7,7 @@ from backend.models.access_requests import (
     AccessRequestStatus,
 )
 from backend.services.access_request_service import AccessRequestService
+from backend.tests.test_access_request_review_service import MockAuditService, MockNeonClient
 from backend.services.identity_provisioning_service import (
     IdentityProvisioningService,
 )
@@ -182,30 +183,11 @@ async def test_approve_request_updates_record_with_caso_a(mock_neon):
         "email": "newbie@anclora.com",
     }
 
-    mock_query = MagicMock()
-    mock_neon.client.table.return_value = mock_query
-    mock_query.select.return_value = mock_query
-    mock_query.eq.return_value = mock_query
-    mock_query.limit.return_value = mock_query
-    mock_query.execute.return_value.data = [pending_record]
-
-    updated_record = {
-        **pending_record,
-        "status": "approved",
-        "reviewed_by": "admin-1",
-        "identity_invitation_id": "inv-001",
-        "invite_token": "token-xyz",
-        "invite_expires_at": "2026-10-01T00:00:00Z",
-        "provisioning_status": "invite_ready",
-    }
-    mock_query.update.return_value = mock_query
-    # When update().execute() is called, return updated_record
-    mock_query.execute.side_effect = [
-        MagicMock(data=[pending_record]),  # _ensure_pending
-        MagicMock(data=[updated_record]),   # _update_pending_request
-    ]
+    # Decisions are persisted atomically through database functions (RPC); the mock client implements them.
+    mock_neon.client = MockNeonClient([pending_record])
 
     with patch("backend.services.access_request_service.identity_provisioning_service.provision_approved_request", new_callable=AsyncMock) as mock_prov, \
+         patch("backend.services.access_request_service.access_request_audit_service", MockAuditService()), \
          patch.object(service, "_send_decision_email", new_callable=AsyncMock) as mock_email:
         mock_prov.return_value = {
             "provisioning_status": "invite_ready",
@@ -244,27 +226,11 @@ async def test_approve_request_updates_record_with_caso_b(mock_neon):
         "email": "existing@anclora.com",
     }
 
-    mock_query = MagicMock()
-    mock_neon.client.table.return_value = mock_query
-    mock_query.select.return_value = mock_query
-    mock_query.eq.return_value = mock_query
-    mock_query.limit.return_value = mock_query
-
-    updated_record = {
-        **pending_record,
-        "status": "approved",
-        "reviewed_by": "admin-1",
-        "identity_subject_id": "usr-456",
-        "membership_id": "mem-123",
-        "provisioning_status": "provisioned",
-    }
-    mock_query.update.return_value = mock_query
-    mock_query.execute.side_effect = [
-        MagicMock(data=[pending_record]),  # _ensure_pending
-        MagicMock(data=[updated_record]),   # _update_pending_request
-    ]
+    # Decisions are persisted atomically through database functions (RPC); the mock client implements them.
+    mock_neon.client = MockNeonClient([pending_record])
 
     with patch("backend.services.access_request_service.identity_provisioning_service.provision_approved_request", new_callable=AsyncMock) as mock_prov, \
+         patch("backend.services.access_request_service.access_request_audit_service", MockAuditService()), \
          patch.object(service, "_send_decision_email", new_callable=AsyncMock) as mock_email:
         mock_prov.return_value = {
             "provisioning_status": "provisioned",
@@ -329,26 +295,11 @@ async def test_approve_request_updates_record_fail_closed(mock_neon):
         "email": "fc@example.com",
     }
 
-    mock_query = MagicMock()
-    mock_neon.client.table.return_value = mock_query
-    mock_query.select.return_value = mock_query
-    mock_query.eq.return_value = mock_query
-    mock_query.limit.return_value = mock_query
-
-    updated_record = {
-        **pending_record,
-        "status": "approved",
-        "reviewed_by": "admin-1",
-        "provisioning_status": "failed",
-        "provisioning_error": "Service unavailable",
-    }
-    mock_query.update.return_value = mock_query
-    mock_query.execute.side_effect = [
-        MagicMock(data=[pending_record]),
-        MagicMock(data=[updated_record]),
-    ]
+    # Decisions are persisted atomically through database functions (RPC); the mock client implements them.
+    mock_neon.client = MockNeonClient([pending_record])
 
     with patch("backend.services.access_request_service.identity_provisioning_service.provision_approved_request", new_callable=AsyncMock) as mock_prov, \
+         patch("backend.services.access_request_service.access_request_audit_service", MockAuditService()), \
          patch.object(service, "_send_decision_email", new_callable=AsyncMock) as mock_email:
         mock_prov.return_value = {
             "provisioning_status": "failed",

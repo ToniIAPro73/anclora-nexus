@@ -1,4 +1,4 @@
-# Checklist de validación — adopción AOS canónica (2026-10-30)
+# Checklist de validación — tests de solicitudes de acceso alineados con la persistencia atómica (2026-10-30)
 
 > Se sobrescribe en cada entrega; el historial queda en Git.
 
@@ -7,19 +7,19 @@
 **Datos:** no se usaron ni modificaron datos de aplicación.
 
 ## 1. Qué cambia
-- Bootstrap mínimo (`AGENTS.md`, adaptadores de proveedor) y contratos `.anclora/` alineados con el modelo AOS ratificado (D-2026-0042): autoridad en Governance, router mínimo, claves Preview heredadas retiradas, semántica de runtime derivada de hechos ya declarados.
-- Copias de contratos sincronizadas desde Vault (11 ficheros).
-- Sin cambios de código de producto, dependencias ni despliegue.
+- El commit `0dcba9f` (29 oct) pasó la decisión de solicitudes de acceso a funciones RPC atómicas (`nexus_review_access_request`, `nexus_log_access_request_audit_event`, `nexus_list_access_request_audit_events`) y actualizó solo parte de los tests; el CI del job "Backend pytest" quedó rojo (9 tests).
+- Se actualizan los tests desfasados, sin tocar código de producto: `test_access_request_audit_service` (mock con `prepare_access_request_audit_event` y RPC), `test_access_request_decision_lifecycle` (mock de Identity), `test_access_request_sla` (lectura de auditoría por RPC con el `MockNeonClient` compartido) y los tres `approve_request` de `test_identity_provisioning` (cliente RPC y servicio de auditoría simulados).
+- La cobertura de escenarios se mantiene (alertas a 24 h/72 h, deduplicación, email fallido, atención de provisioning, casos A/B y fail-closed de Identity).
 
 ## 2. Ya comprobado por el agente
 | Comprobación | Resultado |
 | --- | --- |
-| `aos-adopt` inspect/plan/apply, diff limitado a ficheros contractuales | PASS |
-| `runtime_semantics.py` sobre `.anclora/PRODUCTION_RUNTIME.md` | PASS |
-| Enlaces a Governance en los `.md` modificados, `git diff --check` | PASS |
+| Reproducidos los 9 fallos con Python 3.12 y las dependencias del CI | — |
+| `pytest` completo del backend tras el arreglo | 979 PASS, 1 skipped |
+| `git diff --check` | PASS |
 
 ## 3. NOT_RUN
-Tests, lint, typecheck, build y E2E de la aplicación: el diff es solo documentación/configuración contractual.
+Tests de frontend y `Validate Nexus`: ya estaban en verde y no se tocan.
 
 ## 4. Para Toni
-Sin pasos manuales. Bloqueante: no.
+Comprobar que el CI de `development` queda en verde. Bloqueante: no.
