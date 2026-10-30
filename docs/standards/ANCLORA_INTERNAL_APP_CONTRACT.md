@@ -8,6 +8,7 @@ Unificar la UX/UI de las aplicaciones internas sin borrar la identidad de cada p
 - `anclora-filestudio`
 - `anclora-nexus`
 - `anclora-content-generator-ai`
+- `anclora-command-center`
 
 Nota:
 - `anclora-group` no forma parte de este contrato. Se gobierna como `Entidad Matriz` con branding propio.
