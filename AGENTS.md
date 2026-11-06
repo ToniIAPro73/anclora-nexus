@@ -293,15 +293,14 @@ Antes de modificar este repositorio, todo agente IA debe leer:
 6. `.anclora/SECURITY_RULES.md`
 7. `MEMORY.md`
 
-Regla base: No trabajar directamente en `development`, `staging` ni `production`.
 <!-- ANCLORA-GLOBAL-AGENT-MEMORY-END -->
 
 <!-- ANCLORA-SDD-STANDARDS-START -->
 ## Metodología SDD — Estándar Unificado Anclora
 
-Todo desarrollo en este repo sigue la metodología SDD unificada del ecosistema Anclora.
+Todo desarrollo en este repo sigue la metodología SDD vigente del ecosistema Anclora. La vía correctiva ligera aprobada en Governance D-2026-0043 y Vault CHG-0020 permanece deshabilitada hasta superar el gate técnico de enforcement; hasta entonces aplica el ciclo SDD completo.
 
-**Referencia canónica**: `agency-agents/docs/guides/SDD_INTEGRATION_GUIDE.md`
+**Referencia canónica**: `../anclora-vault/00-governance/operating-model/sdd/03-sdd-guia-agentes-ia.md`
 **Workflow OpenSpec**: `agency-agents/docs/guides/OPENSPEC_WORKFLOW.md`
 
 ### Flujo de trabajo Git
